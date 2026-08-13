@@ -1,0 +1,49 @@
+# init.recovery.qcom.rc -- Huawei MediaPad T2 8.0 Pro (hwjdn)
+#
+# Filename verified: ro.hardware = "qcom" (from androidboot.hardware=qcom on the
+# stock kernel cmdline), so init sources this exact name.
+
+on fs
+    # *** THE MOST IMPORTANT FOUR LINES IN THIS TREE ***
+    # On these legacy Qualcomm devices the /dev/block/bootdevice symlink is NOT
+    # created automatically in recovery. Without it EVERY by-name path in
+    # recovery.fstab and twrp.flags resolves to nothing -- TWRP comes up unable
+    # to mount a single partition, or does not come up at all.
+    # ro.boot.bootdevice is 7824900.sdhci on hwjdn (verified), and the sysfs
+    # tree confirms the soc.0 parent (e.g. /sys/devices/soc.0/78b6000.i2c/...).
+    wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
+    symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
+
+    # adb inside recovery on a 3.10 kernel needs the legacy FunctionFS path.
+    # Without these adbd comes up but never enumerates, which leaves no way to
+    # read /tmp/recovery.log when the screen is the thing that is broken.
+    setprop sys.usb.ffs.aio_compat 1
+    setprop persist.adb.nonblocking_ffs 0
+    setprop ro.adb.nonblocking_ffs 0
+
+on early-init
+    # VERIFIED path; max_brightness reads 255. TWRP writes brightness before its
+    # UI comes up, so if this node is not writable by then the screen stays dark
+    # while TWRP runs perfectly well -- adb responds and it looks bricked.
+    chown system system /sys/class/leds/lcd-backlight/brightness
+    chmod 0666 /sys/class/leds/lcd-backlight/brightness
+
+on init
+    # event5 is the digitiser ("huawei,touchscreen"), event0 the power key,
+    # event6 the volume keys. Covering 0-8 costs nothing and removes a whole
+    # class of "touch is dead" false diagnosis.
+    chmod 0666 /dev/input/event0
+    chmod 0666 /dev/input/event1
+    chmod 0666 /dev/input/event2
+    chmod 0666 /dev/input/event3
+    chmod 0666 /dev/input/event4
+    chmod 0666 /dev/input/event5
+    chmod 0666 /dev/input/event6
+    chmod 0666 /dev/input/event7
+    chmod 0666 /dev/input/event8
+
+on boot
+    write /sys/class/graphics/fb0/blank 0
+# The backlight GPIOs are driven by the kernel now (mdss_dsi.c requests
+# them HIGH at probe, ~1.5 s, well before init runs), so the sysfs export
+# that used to live here is dead code and has been removed.

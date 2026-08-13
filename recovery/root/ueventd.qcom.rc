@@ -1,0 +1,27 @@
+# ueventd.qcom.rc -- hwjdn recovery
+#
+# Trimmed from the CAF msm8916 original to what a RECOVERY actually needs:
+# graphics, storage, input and sensors. The full platform file also covers
+# audio, camera, radio, bluetooth and fingerprint -- none of which recovery
+# touches, and hwjdn has no fingerprint sensor at all.
+#
+# The i2c sysfs paths below are NOT copied blindly: hwjdn's own
+# /proc/bus/input/devices reports its sensors under
+# /devices/soc.0/78b6000.i2c/i2c-0/ (bma2x2-accel at 0-0018, light and
+# proximity at 0-001e), which happens to match the reference exactly.
+
+/dev/kgsl-3d0             0666   system     system
+/dev/ion                  0664   system     system
+/dev/rtc0                 0600   system     system
+
+# sensors
+/sys/devices/soc.0/78b6000.i2c/i2c-0/0-*            enable         0660    input    system
+/sys/devices/soc.0/78b6000.i2c/i2c-0/0-*            poll_delay     0660    input    system
+/sys/devices/soc.0/78b6000.i2c/i2c-0/0-*            enable_wakeup  0660    input    system
+/sys/devices/soc.0/78b6000.i2c/i2c-0/0-*            flush          0660    input    system
+/sys/devices/virtual/input/input*                   poll           0660    input    system
+/sys/devices/virtual/input/input*                   pollrate_ms    0660    input    system
+
+# wlan (present so TWRP's adb-over-network path is not surprised by perms)
+/dev/wcnss_wlan           0660   system     system
+/dev/wcnss_ctrl           0660   system     system
