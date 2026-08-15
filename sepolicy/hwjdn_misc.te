@@ -1,0 +1,82 @@
+# Misc denials from 2026-07-12 permissive harvest
+get_prop(zygote, exported_camera_prop)
+get_prop(system_server, userspace_reboot_config_prop)
+get_prop(system_server, userspace_reboot_exported_prop)
+get_prop(bootanim, userspace_reboot_exported_prop)
+allow init sysfs_leds:lnk_file read;
+allow vold sysfs_mmc_host:file { open write };
+allow fsck_untrusted sysfs:file { read open getattr };
+allow system_app sysfs_zram:dir search;
+allow system_app sysfs_zram:file { read open getattr };
+allow system_app proc_pagetypeinfo:file { read open getattr };
+get_prop(system_server, exported_camera_prop)
+
+
+# The Adreno GL driver reads vendor display properties from every app's
+# RenderThread; without this the camera app cannot create its preview surface
+# and reports "Can't connect to the camera" under enforcing.
+get_prop(appdomain, vendor_display_prop)
+
+# oeminfo_nvm_ser traverses /sys/.../block to locate the oeminfo partition
+allow oeminfo sysfs_block:dir search;
+
+# ---- enforcing-boot harvest (2026-07-30) ----
+# Grantable property reads seen during a permissive boot
+allow rild config_prop:file r_file_perms;
+allow time_daemon radio_prop:file r_file_perms;
+allow thermal-engine radio_prop:file r_file_perms;
+allow hal_gnss_default radio_prop:file r_file_perms;
+allow hal_gnss_default system_prop:file r_file_perms;
+allow hal_gatekeeper_default system_prop:file r_file_perms;
+allow qti_init_shell radio_control_prop:file r_file_perms;
+allow zygote bluetooth_prop:file r_file_perms;
+allow audioserver vendor_default_prop:file r_file_perms;
+allow system_server vendor_display_prop:file r_file_perms;
+allow mm-qcamerad vendor_display_prop:file r_file_perms;
+allow mediaserver bootanim_system_prop:file r_file_perms;
+
+# Cannot be granted: default_prop is system_internal_prop and non-coredomain
+# reads are neverallowed (private/property.te:58-63). These are optional probes.
+dontaudit rild default_prop:file r_file_perms;
+dontaudit vm_bms default_prop:file r_file_perms;
+dontaudit perfd default_prop:file r_file_perms;
+dontaudit netmgrd default_prop:file r_file_perms;
+dontaudit qti_init_shell default_prop:file r_file_perms;
+dontaudit mediacodec default_prop:file r_file_perms;
+dontaudit appdomain vendor_default_prop:file r_file_perms;
+
+# dac_override is neverallowed by AOSP; these blobs ask for it and cope without
+dontaudit libqmi_oem_main self:capability dac_override;
+dontaudit netmgrd self:capability dac_override;
+
+# Huawei /proc/app_info, and init's binder chat with hwservicemanager
+dontaudit init hwservicemanager:binder { call transfer };
+
+# Camera runs inside mediaserver on this device and looks up display.qservice
+allow mediaserver qdisplay_service:service_manager find;
+
+# hci_qcomm_init (the binary, not the script) probes another unlabelled
+# property; default_prop is system_internal_prop so it cannot be granted.
+dontaudit bluetooth_loader default_prop:file r_file_perms;
+
+# TEMPORARY: boot globally enforcing with the display stack permissive so its
+# real denials can be harvested from a running device. Remove before shipping.
+permissive hal_graphics_composer_default;
+permissive surfaceflinger;
+allow hal_graphics_composer_default init_service_status_prop:file r_file_perms;
+
+# vendor_init evaluates `on property:` triggers from the qcom init scripts
+get_prop(vendor_init, vendor_hwjdn_prop)
+set_prop(vendor_init, vendor_hwjdn_prop)
+get_prop(vendor_init, bluetooth_prop)
+get_prop(vendor_init, persist_debug_prop)
+# init reads /proc/app_info — this device's own type; system_server and oeminfo already may
+allow init proc_app_info:file r_file_perms;
+
+# HDR capture makes mm-qcamerad ask perfd for a perf boost from imgcomp_thread
+allow mm-qcamerad mpctl_socket:dir search;
+allow mm-qcamerad mpctl_socket:sock_file write;
+allow mm-qcamerad perfd:unix_stream_socket connectto;
+dontaudit libqmi_oem_main self:capability dac_read_search;
+dontaudit netmgrd self:capability dac_read_search;
+dontaudit toolbox system_data_root_file:dir read;

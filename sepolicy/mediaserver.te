@@ -1,0 +1,2 @@
+allow mediaserver audiod:binder call;
+allow mediaserver camera_data_file:dir search;

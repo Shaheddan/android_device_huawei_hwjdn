@@ -1,0 +1,7 @@
+type hw_audio_info_sysfs, fs_type, sysfs_type;
+type proc_app_info, fs_type, proc_type;
+type proc_kernel_sched, fs_type, proc_type;
+type proc_printk, fs_type, proc_type;
+
+# Bypass charging sysfs node
+type sysfs_bypass_charging, fs_type, sysfs_type;

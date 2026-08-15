@@ -1,0 +1,24 @@
+cc_binary {
+    name: "android.hardware.light@2.0-service.hwjdn",
+    init_rc: ["android.hardware.light@2.0-service.hwjdn.rc"],
+    defaults: ["hidl_defaults"],
+    relative_install_path: "hw",
+
+    srcs: [
+        "service.cpp",
+        "Light.cpp",
+    ],
+
+    // libdl is gone with the QMI path: this HAL dlopen'd libqmi_oem_api.so on
+    // kiwi to reach the modem, and drives sysfs directly here.
+    shared_libs: [
+        "libcutils",
+        "libhardware",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+        "android.hardware.light@2.0",
+    ],
+
+    vendor: true,
+}
