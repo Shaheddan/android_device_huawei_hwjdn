@@ -72,116 +72,38 @@ void property_override(char const prop[], char const value[], bool add = true)
 }
 
 static match_t matches[] = {
-    /* Honor 5x USA L24 (LTE, GSM/WCDMA) */
+    /* MediaPad T2 8.0 Pro / Honor Pad 2, LTE -- the unit this port was
+       developed on. The fingerprint was read off this device's own stock
+       EMUI in Phase 0. The description is derived from it by the standard
+       "<product>-<type> <version> <id> <incremental> <tags>" convention.
+       default_network 9 = LTE/GSM/WCDMA, matching kiwi's L-series entries. */
     {
-        "KIW-L24",
-        "KIW-L24-user 5.1.1 GRJ90 C567B140 release-keys",
-        "HONOR/KIW-L24/HNKIW-Q:5.1.1/HONORKIW-L24/C567B140:user/release-keys",
+        "JDN-L01",
+        "JDN-user 6.0.1 HuaweiMediaPad JDN-L01C199B003 release-keys",
+        "Huawei/JDN/hwjdn:6.0.1/HuaweiMediaPad/JDN-L01C199B003:user/release-keys",
         "9",
         false
     },
-    /* Honor 5x Russia L23 (LTE, GSM/WCDMA) */
-    {
-        "KIW-L23",
-        "KIW-L23-user 5.1.1 GRJ90 C567B140 release-keys",
-        "HONOR/KIW-L23/HNKIW-Q:5.1.1/HONORKIW-L23/C567B140:user/release-keys",
-        "9",
-        false
-    },
-    /* Honor 5x India L22 (LTE, GSM/WCDMA) */
-    {
-        "KIW-L22",
-        "KIW-L22-user 5.1.1 GRJ90 C675B130 release-keys",
-        "HONOR/KIW-L22/HNKIW-Q:5.1.1/HONORKIW-L22/C675B130:user/release-keys",
-        "9",
-        false
-    },
-    /* Honor 5x EU L21 (LTE, GSM/WCDMA) */
-    {
-        "KIW-L21",
-        "KIW-L21-user 5.1.1 GRJ90 C432B130 release-keys",
-        "HONOR/KIW-L21/HNKIW-Q:5.1.1/HONORKIW-L21/C432B130:user/release-keys",
-        "9",
-        false
-    },
-    /* Honor 5x AL10 Chinese (TD-SCDMA/LTE/GSM/WCDMA, CDMA, and EvDo) */
-    {
-        "KIW-AL10",
-        "KIW-AL10-user 5.1.1 GRJ90 C92B175 release-keys",
-        "HONOR/KIW-AL10/HNKIW-Q:5.1.1/HONORKIW-AL10/C92B175:user/release-keys",
-        "22",
-        true
-    },
-    /* Honor 5x AL20 Chinese (TD-SCDMA/LTE/GSM/WCDMA, CDMA, and EvDo) */
-    {
-        "KIW-AL20",
-        "KIW-AL20-user 5.1.1 GRJ90 C432B130 release-keys",
-        "HONOR/KIW-AL20/HNKIW-Q:5.1.1/HONORKIW-AL20/C432B130:user/release-keys",
-        "22",
-        true
-    },
-    /* Chinese WCDMA/TD-SCDMA version KIW-UL00 (TD-SCDMA, GSM/WCDMA and LTE) */
-    {
-        "KIW-UL00",
-        "KIW-UL00-user 5.1.1 GRJ90 C00B140 release-keys",
-        "HONOR/KIW-UL00/HNKIW-Q:5.1.1/HONORKIW-UL00/C00B140:user/release-keys",
-        "20",
-        false
-    },
-    /* Chinese CDMA version KIW-CL00 (LTE, CDMA and EvDo) */
-    {
-        "KIW-CL00",
-        "KIW-CL00-user 5.1.1 GRJ90 C92B140 release-keys",
-        "HONOR/KIW-CL00/HNKIW-Q:5.1.1/HONORKIW-CL00/C92B140:user/release-keys",
-        "8",
-        true
-    },
-    /* Chinese TD-SCDMA version KIW-TL00H (TD-SCDMA,GSM and LTE) */
-    {
-        "KIW-TL00H",
-        "KIW-TL00H-user 5.1.1 GRJ90 C00B140 release-keys",
-        "HONOR/KIW-TL00H/HNKIW-Q:5.1.1/HONORKIW-TL00H/C00B140:user/release-keys",
-        "17",
-        false
-    },
-    /* Chinese TD-SCDMA version KIW-TL00 (TD-SCDMA,GSM and LTE) */
-    {
-        "KIW-TL00",
-        "KIW-TL00-user 5.1.1 GRJ90 C00B140 release-keys",
-        "HONOR/KIW-TL00/HNKIW-Q:5.1.1/HONORKIW-TL00/C00B140:user/release-keys",
-        "17",
-        false
-    },
-    /* HUAWEI GR5 version KII-L22 (same as honor, evidently from Japan) (LTE, GSM/WCDMA) */
-    {
-        "KII-L22",
-        "KII-L22-user 5.1.1 GRJ90 C635B131 release-keys",
-        "HUAWEI/KII-L22/HWKII-Q:5.1.1/HUAWEIKII-L22/C635B131:user/release-keys",
-        "9",
-        false
-    },
-    /* HUAWEI GR5 version KII-L21 (same as honor) (LTE, GSM/WCDMA) */
-    {
-        "KII-L21",
-        "KII-L21-user 5.1.1 GRJ90 C185B130 release-keys",
-        "HUAWEI/KII-L21/HWKII-Q:5.1.1/HUAWEIKII-L21/C185B130:user/release-keys",
-        "9",
-        false
-    },
-    /* HUAWEI GR5 version KII-L05 (same as honor, from Canada) */
-    {
-        "KII-L05",
-        "KII-L05-user 6.0.1 GRJ90 C654B340 release-keys",
-        "HUAWEI/KII-L05/HWKII-Q:6.0.1/HUAWEIKII-L05/C654B340:user/release-keys",
-        "9",
-        false
-    },
+    /* JDN-W09 (wifi-only) and JDN-AL00 (CN) are intentionally not listed:
+       no verified fingerprint exists for either, and a fabricated one would
+       be worse than none. With the bounds check above fixed, an unlisted
+       variant returns early and boots on Android 12's derived fingerprint. */
 };
 
 static const int n_matches = sizeof(matches) / sizeof(matches[0]);
 
 static void property_set(const char *key, string value, bool add = true)
 {
+    /* An empty value written to a write-once ro. property claims the slot and
+       makes every later attempt fail with "Read-only property was already
+       set" -- which is what killed system_server via
+       Build.ensureFingerprintProperty(). Refuse instead of poisoning it. */
+    if (value.empty()) {
+        LOG(WARNING) << "init_hwjdn: refusing to set " << key
+                     << " to an empty value";
+        return;
+    }
+
     property_override(key, value.c_str(), add);
 }
 
@@ -204,11 +126,21 @@ void vendor_load_properties()
         app_info.close();
     }
 
+    /* Temporary: WARNING rather than INFO so it survives any log-level
+       filtering. Drop to INFO once /proc/app_info's format is confirmed. */
+    LOG(WARNING) << "init_hwjdn: model line read = '" << model << "'";
+
     for (match = matches; match - matches < n_matches && !contains(model, match->model); match++) {
     }
 
-    if (!match) {
-        LOG(WARNING) << "Unknown variant: " << model.c_str();
+    /* The loop above ends either on a match or with match == matches +
+       n_matches, one past the end. `match` is a pointer into a static array,
+       so it is NEVER null -- the original `if (!match)` could not fire, and
+       execution fell through to dereference off-the-end memory. Compare
+       against the end of the array instead. */
+    if (match - matches >= n_matches) {
+        LOG(WARNING) << "init_hwjdn: unknown variant, leaving build props "
+                     << "alone so init can derive them: '" << model << "'";
         return;
     }
 
