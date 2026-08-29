@@ -87,7 +87,7 @@ eng/userdebug.
 
 ## Kernel / vendor
 
-- Kernel: [android_kernel_huawei_hwjdn](https://github.com/Shaheddan/android_kernel_huawei_hwjdn) (lineage-19.1, **modified** — see above)
+- Kernel: [android_kernel_huawei_hwjdn](https://github.com/Shaheddan/android_kernel_huawei_jdnl01/tree/lineage-19.1) (lineage-19.1, **modified** — see above)
 - Vendor: TheMuppets `proprietary_vendor_huawei` with ELF-check
   exemptions and the TZ keystore blob removed
 
