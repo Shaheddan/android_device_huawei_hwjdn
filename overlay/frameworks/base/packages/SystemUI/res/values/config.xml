@@ -22,4 +22,18 @@
 <resources>
     <!-- Doze: does this device support STATE_DOZE and STATE_DOZE_SUSPEND?  -->
     <bool name="doze_display_state_supported">true</bool>
+
+    <!-- Lockscreen idle timeout with the bouncer NOT showing. AOSP defaults to
+         10000, which on this tablet ramps the backlight 76 down to 27 at about
+         7.8 s and blanks the screen at 10 s while you are still looking at the
+         lockscreen. Confirmed in dumpsys power:
+         mUserActivityTimeoutOverrideFromWindowManager=10000 and
+         "Screen off timeout: 10000 ms" with mLastSleepReason=timeout, even
+         though settings screen_off_timeout was 1800000, because the
+         NotificationShade window overrides it via
+         LayoutParams.userActivityTimeout while keyguard holds focus. Read by
+         NotificationShadeWindowControllerImpl.applyUserActivityTimeout().
+         The bouncer path uses KeyguardViewMediator.AWAKE_INTERVAL_BOUNCER_MS
+         and is deliberately left alone. -->
+    <integer name="config_lockScreenDisplayTimeout">60000</integer>
 </resources>

@@ -405,7 +405,7 @@ int sensors_poll_context_t::batch(int handle, int flags, int64_t period_ns, int6
                 period_ns = maxDelay;
             }
 
-            retval = v1->setDelay((sensors_poll_device_t*)v1, handle, period_ns);
+            retval = v1->setDelay((sensors_poll_device_t*)v1, local_handle, period_ns);
 
             // Batch should only fail for internal errors
             if (retval < 0) {

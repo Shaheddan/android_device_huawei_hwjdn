@@ -97,6 +97,13 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/ld.config.txt:$(TARGET_COPY_OUT_SYSTEM)/etc/swcodec/ld.config.txt
 
+# Battery
+# Bypass charging control. Drives the BQ24296's factory_diag node, which
+# disables charging at the silicon while leaving the input path alive -- see
+# JdnParts/src/.../BypassService.java for why the neighbouring nodes are traps.
+PRODUCT_PACKAGES += \
+    JdnParts
+
 # Bluetooth
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-impl \
@@ -306,7 +313,6 @@ PRODUCT_COPY_FILES += \
 PRODUCT_SOONG_NAMESPACES += \
     device/huawei/hwjdn/init \
     device/huawei/hwjdn/libshims \
-    device/huawei/hwjdn/libwcnss_qmi \
     device/huawei/hwjdn/light
 
 # Thermal
@@ -336,7 +342,7 @@ PRODUCT_PACKAGES += \
     wpa_supplicant \
     wpa_supplicant.conf \
     wcnss_service \
-    libwcnss_qmi_hwjdn
+    libwcnss_qmi
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf \

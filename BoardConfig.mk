@@ -51,7 +51,7 @@ BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.
 
 # BRINGUP ONLY. Remove once a boot-time denial harvest is clean, exactly as
 # kiwi did. Leaving it in ships a ROM with SELinux disabled.
-BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+BOARD_KERNEL_CMDLINE += androidboot.selinux=enforcing
 
 # 17.85 MB of kernel is far too large for a compressed Image.gz; this is an
 # uncompressed arm64 Image, as on every device in this family.
@@ -246,7 +246,8 @@ BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
 # symbols -- kiwi's list also names sensors.kiwi.so, fingerprint.msm8916.so and
 # several ov5648/s5k4e1 files that are kiwi's hardware, not ours.
 TARGET_LD_SHIM_LIBS := \
-    /system/vendor/lib/libchromatix_imx219_liteon_pad_zsl_preview.so|libshim_cutils.so:\
-    /system/vendor/lib/libchromatix_imx219_ofilm_pad_zsl_preview.so|libshim_cutils.so:\
-    /system/vendor/lib/libdmd.so|libshim_cutils.so:\
-    /system/vendor/lib64/libdmd.so|libshim_cutils.so
+    /system/vendor/lib/libchromatix_imx219_liteon_pad_zsl_preview.so|libshim_cutils_hwjdn.so:\
+    /system/vendor/lib/libchromatix_imx219_ofilm_pad_zsl_preview.so|libshim_cutils_hwjdn.so:\
+    /system/vendor/lib/libdmd.so|libshim_cutils_hwjdn.so:\
+    /system/vendor/lib64/libdmd.so|libshim_cutils_hwjdn.so:\
+    /system/vendor/bin/thermal-engine|libshim_cutils_hwjdn.so

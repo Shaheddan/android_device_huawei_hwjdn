@@ -1,2 +1,0 @@
-# hal needs to access /dev/i2c-1
-allow hal_audio_default smartamp_device:chr_file { ioctl open read write };

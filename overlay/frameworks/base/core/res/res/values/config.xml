@@ -238,4 +238,11 @@
     <string-array name="config_biometric_sensors" translatable="false">
         <item>0:2:15</item>
     </string-array>
+
+    <!-- CameraService runs inside mediaserver on this device (HAL1, inherited from
+         kiwi), so its pingForUserUpdate() arrives from AID_MEDIA (1013) rather than
+         AID_CAMERASERVER. With this false, CameraServiceProxy rejects the ping, the
+         allowed-user list stays empty and every camera connect is refused. Proven on
+         hardware: "Calling UID: 1013 doesn't match expected camera service UID!" -->
+    <bool name="config_allowMediaUidForCameraServiceProxy">true</bool>
 </resources>

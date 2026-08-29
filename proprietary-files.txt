@@ -551,7 +551,7 @@ bin/oeminfo_nvm_server:vendor/bin/oeminfo_nvm_server
 bin/rmt_oeminfo:vendor/bin/rmt_oeminfo
 
 # Sensors
-lib64/hw/sensors.msm8916.so:vendor/lib64/hw/sensors.msm8916.so
+lib64/hw/sensors.msm8916.so:vendor/lib64/sensors.hwjdn.so
 lib/libdmd.so:vendor/lib/libdmd.so
 lib64/libdmd.so:vendor/lib64/libdmd.so
 vendor/etc/calmodule.cfg

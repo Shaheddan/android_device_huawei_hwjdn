@@ -59,10 +59,8 @@ allow mediaserver qdisplay_service:service_manager find;
 # property; default_prop is system_internal_prop so it cannot be granted.
 dontaudit bluetooth_loader default_prop:file r_file_perms;
 
-# TEMPORARY: boot globally enforcing with the display stack permissive so its
-# real denials can be harvested from a running device. Remove before shipping.
-permissive hal_graphics_composer_default;
-permissive surfaceflinger;
+# The display stack ran permissive through the first enforcing boot and logged
+# ZERO denials (permissive domains still audit), so it needs no grants.
 allow hal_graphics_composer_default init_service_status_prop:file r_file_perms;
 
 # vendor_init evaluates `on property:` triggers from the qcom init scripts
@@ -80,3 +78,45 @@ allow mm-qcamerad perfd:unix_stream_socket connectto;
 dontaudit libqmi_oem_main self:capability dac_read_search;
 dontaudit netmgrd self:capability dac_read_search;
 dontaudit toolbox system_data_root_file:dir read;
+
+
+# ---- Bypass charging (JdnParts -> BQ24296 factory_diag) ----
+# The node is labelled sysfs_bypass_charging by genfs_contexts; the type itself
+# is declared in file.te. JdnParts runs as system_app (sharedUserId
+# android.uid.system) and init sets the node's mode at boot.
+allow system_app sysfs_bypass_charging:file { read open write getattr };
+allow init sysfs_bypass_charging:file { read open write setattr };
+
+# ---- enforcing-boot harvest (2026-08-27, first genuinely enforcing boot) ----
+# thermal-engine polls boot_status_prop once a second forever; without this it
+# logged a denial every second from boot. It only appeared now because the
+# daemon could not start at all until libshim_cutils_hwjdn was bound to it.
+allow thermal-engine boot_status_prop:file r_file_perms;
+
+# The audio HAL reads a config property during setup.
+allow hal_audio_default config_prop:file r_file_perms;
+
+# The graphics composer reads boot_status_prop when a client requests a
+# surface. Only surfaced once hal_graphics_composer_default stopped being
+# permissive: under enforcing the read is blocked, the camera cannot create
+# its preview surface, and the app reports "Can't connect to the camera".
+allow hal_graphics_composer_default boot_status_prop:file r_file_perms;
+
+# qdhwcomposer registers a death notifier on CameraService (setCameraStatus /
+# updateCameraStatus). Without this it retries the servicemanager lookup once a
+# second, blocks the camera open for the full 5 s timeout, and the app reports
+# "Can't connect to the camera". CameraService lives in mediaserver on this
+# device but is still registered under the cameraserver_service label.
+allow hal_graphics_composer_default cameraserver_service:service_manager find;
+
+# Settings' AsyncTask collects battery, storage and wifi stats over binder.
+allow system_app hal_power_default:binder call;
+allow system_app wificond:binder call;
+# storaged is a plat domain not exported to vendor policy ("unknown type
+# storaged" at build time), so its binder denial cannot be granted from here.
+
+# Cannot be granted: system_prop is system_internal_prop and vendor_init is
+# not coredomain, so AOSP neverallows the write. The qcom init scripts set
+# sys.io.scheduler and cope without it, exactly like the default_prop reads
+# above.
+dontaudit vendor_init system_prop:property_service set;

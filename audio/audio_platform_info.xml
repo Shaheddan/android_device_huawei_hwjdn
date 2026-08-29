@@ -25,11 +25,11 @@
 <!-- OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN -->
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                          -->
 <audio_platform_info>
-    <backend_names>
-        <device name="SND_DEVICE_OUT_SPEAKER" backend="smart-pa" />
-        <device name="SND_DEVICE_OUT_SPEAKER_REVERSE" backend="smart-pa" />
-        <device name="SND_DEVICE_OUT_SPEAKER_AND_HEADPHONES" backend="smart-pa-and-headphones" />
-        <device name="SND_DEVICE_OUT_VOICE_SPEAKER" backend="smart-pa" />
-    </backend_names>
+    <!-- No backend_names overrides. kiwi remaps the speaker to a smart-PA on
+         QUAT_MI2S; jdn drives its speaker from the codec's RX3 on PRI_MI2S, so
+         the HAL must ask audio_route for the plain "speaker" paths that
+         Huawei's own jordan mixer_paths.xml defines. With the smart-pa
+         override in place the HAL requested "<usecase> smart-pa", no such
+         path existed, and nothing was routed. -->
 </audio_platform_info>
 

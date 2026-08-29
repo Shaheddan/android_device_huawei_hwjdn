@@ -1,4 +1,0 @@
-allow perfd proc_kernel_sched:file { open read write };
-
-# neverallow - ignore the spam
-dontaudit perfd self:capability sys_ptrace;

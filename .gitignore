@@ -1,0 +1,8 @@
+# Working files that must never be published: backups belong in C:\tablet, and
+# a stray .bak inside res/ or an init directory is silently consumed by aapt2
+# and init respectively (both cost a failed build during bring-up).
+*.bak
+*.bak-*
+*.kiwi.bak
+.kiwi.bak/
+.auto_sync.log

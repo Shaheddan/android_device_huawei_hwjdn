@@ -23,7 +23,6 @@ cc_library_shared {
     // the installed filename libshim_cutils.so, which is what BoardConfig.mk's
     // TARGET_LD_SHIM_LIBS entries key on.
     name: "libshim_cutils_hwjdn",
-    stem: "libshim_cutils",
     srcs: [
         "hw_cutils.c",
         "hw_log.c",

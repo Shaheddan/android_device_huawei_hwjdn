@@ -5,3 +5,12 @@ allow system_server shell_exec:file { read execute open };
 allow system_server app_zygote:process getpgid;
 
 unix_socket_connect(system_server, qmuxd, libqmi_oem_main);
+
+# system_server reads Huawei's oeminfo through the oeminfo daemon's tmpfs
+# device dir, the same way bluetooth_loader does (see bluetooth_loader.te).
+# Files there are created per-request with timestamped names
+# (/dev/oinv/<epoch>.<pid>) and removed after reading, hence unlink and
+# remove_name. Harvested under permissive: 33 denials in one boot, the only
+# non-AOSP ones on this device.
+allow system_server oeminfo_device:dir { search write remove_name };
+allow system_server oeminfo_device:file { getattr open read unlink };
