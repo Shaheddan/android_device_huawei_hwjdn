@@ -1,6 +1,6 @@
-# Device tree for Huawei Honor 5X (hwjdn) — LineageOS 19.1
+# Device tree for Huawei mediapad T2 8 pro (hwjdn) — LineageOS 19.1
 
-Unofficial LineageOS 19.1 (Android 12L) for the Huawei Honor 5X, ported
+Unofficial LineageOS 19.1 (Android 12L) for the Huawei mediapad T2 8 pro, ported
 from this device's own LineageOS 18.1 tree.
 
 ## Device specifications
