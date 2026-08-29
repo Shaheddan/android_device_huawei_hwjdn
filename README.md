@@ -7,13 +7,13 @@ from this device's own LineageOS 18.1 tree.
 
 | Feature  | Specification                     |
 | :------- | :-------------------------------- |
-| SoC      | Qualcomm MSM8939 Snapdragon 616   |
-| CPU      | 4x1.5 GHz + 4x1.2 GHz Cortex-A53  |
-| GPU      | Adreno 405                        |
-| Memory   | 2/3 GB RAM                        |
-| Display  | 5.5" 1080x1920 IPS                |
-| Storage  | 16 GB (microSD support)           |
-| Battery  | 3000 mAh                          |
+| SoC      | Qualcomm MSM8939v2 Snapdragon 616   |
+| CPU      | 4x 1.7 GHz ARM Cortex-A53, 4x 1.2 GHz ARM Cortex-A53, Cores: 8  |
+| GPU      | Qualcomm Adreno 405, 550 MHz                        |
+| Memory   | 2 GB, 800 MHz                        |
+| Display  | 8 in, IPS, 1920 x 1200 pixels, 24 bit                |
+| Storage  | 16 GB (microSD, microSDHC, microSDXC support)           |
+| Battery  | 4800 mAh, Li-Polymer                          |
 | Kernel   | 3.10 (arm64, non-Treble)          |
 
 ## Status
