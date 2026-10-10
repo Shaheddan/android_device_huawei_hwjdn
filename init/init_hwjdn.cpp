@@ -84,10 +84,28 @@ static match_t matches[] = {
         "9",
         false
     },
-    /* JDN-W09 (wifi-only) and JDN-AL00 (CN) are intentionally not listed:
-       no verified fingerprint exists for either, and a fabricated one would
-       be worse than none. With the bounds check above fixed, an unlisted
-       variant returns early and boots on Android 12's derived fingerprint. */
+    /* jdn: W09 and AL00 entries. The kernel ships a DTB per variant
+       (huawei_jdn_w09.dts / huawei_jdn_al00.dts) whose huawei_fac_info node
+       names it in /proc/app_info. No verified stock fingerprint exists for
+       either, and a fabricated one would be worse than none, so description
+       and fingerprint stay empty: only model / name / device are set and
+       Android derives the fingerprint from them. default_network 9 as on
+       the L01; moot on the W09 (Wi-Fi only), a guess on the AL00 (CDMA
+       not assumed). */
+    {
+        "JDN-W09",
+        "",
+        "",
+        "9",
+        false
+    },
+    {
+        "JDN-AL00",
+        "",
+        "",
+        "9",
+        false
+    },
 };
 
 static const int n_matches = sizeof(matches) / sizeof(matches[0]);
@@ -151,8 +169,13 @@ void vendor_load_properties()
     };
 
     property_set("ro.build.product", "hwjdn");
-    property_set("ro.build.description", match->description);
-    property_set("ro.build.fingerprint", match->fingerprint);
+    /* Entries without a verified stock fingerprint (W09, AL00) keep the
+       one Android derives; property_set() would refuse the empty value
+       anyway, this just keeps the log clean. */
+    if (!match->fingerprint.empty()) {
+        property_set("ro.build.description", match->description);
+        property_set("ro.build.fingerprint", match->fingerprint);
+    }
 
     for (const auto &source : ro_product_props_default_source_order) {
         set_ro_product_prop(source, "device", "hwjdn");
@@ -161,10 +184,12 @@ void vendor_load_properties()
     }
 
     // Also write vendor properties to avoid mismatch
-    property_set("ro.bootimage.build.fingerprint", match->fingerprint, false);
-    property_set("ro.odm.build.fingerprint", match->fingerprint, false);
-    property_set("ro.system.build.fingerprint", match->fingerprint, false);
-    property_set("ro.vendor.build.fingerprint", match->fingerprint, false);
+    if (!match->fingerprint.empty()) {
+        property_set("ro.bootimage.build.fingerprint", match->fingerprint, false);
+        property_set("ro.odm.build.fingerprint", match->fingerprint, false);
+        property_set("ro.system.build.fingerprint", match->fingerprint, false);
+        property_set("ro.vendor.build.fingerprint", match->fingerprint, false);
+    }
 
     if (match->is_cdma) {
         property_set("telephony.lteOnCdmaDevice", "1");
