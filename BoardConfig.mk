@@ -169,6 +169,9 @@ BOARD_FLASH_BLOCK_SIZE := 131072
 
 # Power
 TARGET_USES_INTERACTION_BOOST := true
+# jdn: core_ctl screen-on: the screen on/off core_ctl switch, built
+# into the qcom power HAL through its device hook.
+TARGET_POWERHAL_SET_INTERACTIVE_EXT := $(DEVICE_PATH)/power/power-interactive-ext.c
 # NOTE: no TARGET_TAP_TO_WAKE_NODE. kiwi points at /sys/touch_screen/tap_to_wake,
 # a node Huawei's own touch driver creates. This device runs nvt_ts_jdn, which
 # reports coordinates and nothing else, and its DTS has no such property.
