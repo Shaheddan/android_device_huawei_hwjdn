@@ -1,0 +1,5 @@
+made 2026-10-12 01:04 by jdn_twrp_dtimg.py
+kernel: android_kernel_huawei_hwjdn jdn-pad-power 214fd7a7 README: drop the upload link the GitHub editor added at the top
+dtbtool: LineageOS android_system_tools_dtbtool lineage-18.1 (ffd4bcb), -2 -s 2048
+Image    19279544  sha1 f77407d32a7ba20ed970e5e71001d341f4c48387
+dt.img     659456  sha1 86f59cb4ee820bd12c823b32a142e5e1dcdc6a5a

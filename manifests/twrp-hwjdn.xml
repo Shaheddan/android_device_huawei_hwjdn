@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  hwjdn TWRP (twrp-11): this device tree, plus mohammadsa9's system/core.
+
+  WHY the system/core swap: Android 11's adbd uses aio FunctionFS, which
+  needs kernel 3.18 or newer. On this 3.10 kernel adb enumerates but never
+  completes the handshake and stays offline. mohammadsa9's android-11 branch
+  reverts "Move adbd's legacy USB implementation to fastboot", bringing the
+  legacy USB path back. "github" is the remote twrp-extras.xml defines.
+
+  twrp-variants: the build with the JDN-W09 and JDN-AL00 DTBs, under test.
+-->
+<manifest>
+
+  <remote name="shaheddan"
+          fetch="https://github.com/Shaheddan" />
+
+  <remove-project name="android_system_core" />
+  <project path="system/core"
+           name="mohammadsa9/android_system_core"
+           remote="github" revision="android-11" clone-depth="1" />
+
+  <project path="device/huawei/hwjdn"
+           name="android_device_huawei_hwjdn"
+           remote="shaheddan" revision="twrp-variants" />
+
+</manifest>

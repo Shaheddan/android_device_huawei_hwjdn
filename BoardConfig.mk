@@ -1,5 +1,6 @@
 #
-# BoardConfig.mk -- Huawei MediaPad T2 8.0 Pro (JDN-L01, device hwjdn)
+# BoardConfig.mk -- Huawei MediaPad T2 8.0 Pro (JDN-L01, JDN-W09, JDN-AL00;
+# device hwjdn)
 # TWRP on the twrp-11 (Android 11) branch. MSM8939v2 / Adreno 405 / kernel 3.10.
 #
 # Structure follows mohammadsa9's kiwi tree, which ships a WORKING TWRP 3.7 on
@@ -50,8 +51,8 @@ BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.
 
 BOARD_MKBOOTIMG_ARGS := --kernel_offset 0x00008000 --ramdisk_offset 0x01000000 --tags_offset 0x00000100
 
-# 17,852,440 bytes is far too large for a compressed Image.gz. The reference
-# tree confirms the same platform ships an uncompressed arm64 `Image`.
+# The kernel ships as an uncompressed arm64 `Image` (~19 MB), as the kiwi
+# reference does on the same platform.
 BOARD_KERNEL_IMAGE_NAME := Image
 BOARD_DT_IMAGE_NAME     := dt.img
 
@@ -59,8 +60,11 @@ BOARD_DT_IMAGE_NAME     := dt.img
 # mkbootimg.py, because AOSP's mkbootimg has no --dt. See mkbootimg/mkbootimg.mk.
 BOARD_CUSTOM_BOOTIMG_MK := $(LOCAL_PATH)/mkbootimg/mkbootimg.mk
 
-# Phase 1a: both lifted from stock RECOVERY.img, so panel/touch/eMMC init is
-# already known-good and the first boot tests only TWRP.
+# Prebuilt Image and dt.img from android_kernel_huawei_hwjdn jdn-pad-power,
+# the kernel the LineageOS 19.1 build uses. dt.img carries one DTB per model
+# (L01 0x1f94, W09 0x1f92, AL00 0x1fc2): the bootloader only boots a recovery
+# whose dt.img has its board ID. prebuilt/PREBUILT-INFO.txt records the
+# kernel commit and the checksums.
 TARGET_FORCE_PREBUILT_KERNEL := true
 INSTALLED_DTIMAGE_TARGET     := $(LOCAL_PATH)/prebuilt/$(BOARD_DT_IMAGE_NAME)
 TARGET_PREBUILT_KERNEL       := $(LOCAL_PATH)/prebuilt/$(BOARD_KERNEL_IMAGE_NAME)

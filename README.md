@@ -1,10 +1,24 @@
-# TWRP 3.7.0 device tree — Huawei MediaPad T2 8.0 Pro (JDN-L01)
+# TWRP 3.7.0 device tree — Huawei MediaPad T2 8.0 Pro (hwjdn)
 
 TWRP 3.7.0 for the Huawei MediaPad T2 8.0 Pro / Honor Pad 2
-(JDN-L01, codename `jordan`, `ro.product.device` = `hwjdn`, MSM8939v2).
+(codename `jordan`, `ro.product.device` = `hwjdn`, MSM8939v2), built on the
+TWRP 11 (Android 11) branch.
 
-Built on the TWRP 11 (Android 11) branch. Everything works: display,
-touch, backlight and screen on/off, adb, MTP, and all partitions mount.
+## Supported models
+
+| Model | Board ID | Status |
+| :---- | :------- | :----- |
+| JDN-L01 (LTE) | `0x1f94` | Supported and tested |
+| JDN-W09 (Wi-Fi) | `0x1f92` | `twrp-variants` branch — not yet tested on a W09 |
+| JDN-AL00 (China, LTE) | `0x1fc2` | `twrp-variants` branch — not yet tested on an AL00 |
+
+The bootloader only boots a recovery whose `dt.img` has a DTB with the
+device's board ID. The first release carried only the L01's, so it could
+not boot on a W09 or AL00. `prebuilt/dt.img` now carries one DTB per model,
+built from the kernel's `huawei_jdn_l01.dts`, `huawei_jdn_w09.dts` and
+`huawei_jdn_al00.dts`. The W09 and AL00 trees follow Huawei's own JDN source:
+they include the L01's and change only the model, board ID, modem ID, the
+missing SAR sensor, the variant name and the W09 panel's front porches.
 
 ## Device
 
@@ -30,49 +44,53 @@ touch, backlight and screen on/off, adb, MTP, and all partitions mount.
 | Backup / restore | working |
 | `/data` decryption (FDE) | not implemented — see below |
 
+Checked on the JDN-L01 with the first release's kernel. The prebuilt kernel
+is now the one the LineageOS 19.1 `jdn-pad-power` build uses, and is being
+re-checked in TWRP.
+
 `/data` is full-disk encrypted, and `TW_INCLUDE_CRYPTO` is off, so internal
 storage reads 0 MB. Install ROM zips from the microSD. Installing a custom
 ROM formats `/data` anyway, which removes the encryption permanently.
 
 ## Building
 
+`manifests/twrp-hwjdn.xml` adds this tree and swaps in mohammadsa9's
+`system/core`. Android 11's `adbd` uses aio FunctionFS, which needs kernel
+3.18 or newer; on this device's 3.10 kernel adb enumerates but never
+completes the handshake and stays `offline`. mohammadsa9's `android-11`
+branch brings back adbd's legacy USB path.
+
     repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11
+    mkdir -p .repo/local_manifests
+    curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/twrp-variants/manifests/twrp-hwjdn.xml -o .repo/local_manifests/twrp-hwjdn.xml
     repo sync
-
-Then place this tree at `device/huawei/hwjdn` and:
-
     export ALLOW_MISSING_DEPENDENCIES=true
     source build/envsetup.sh
     lunch twrp_hwjdn-eng
     mka recoveryimage
 
-### One required manifest change
+### On crave.io
 
-Android 11's `adbd` uses aio FunctionFS, which needs kernel 3.18 or newer.
-On this device's 3.10 kernel adb enumerates but never completes the
-handshake, leaving it permanently `offline`. Add
-`.repo/local_manifests/twrp-syscore.xml`:
+`crave/build-twrp.sh` runs the same steps on a Crave build node, from a
+folder set up for Crave's TWRP project:
 
-    <?xml version="1.0" encoding="UTF-8"?>
-    <manifest>
-      <remove-project name="android_system_core" />
-      <project path="system/core" name="mohammadsa9/android_system_core"
-               remote="github" revision="android-11" clone-depth="1" />
-    </manifest>
-
-then `repo sync --force-sync system/core`.
+    repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 --git-lfs
+    crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/twrp-variants/crave/build-twrp.sh | bash"
+    crave pull out/target/product/hwjdn/recovery.img
 
 ### If you change TW_THEME or the resolution
 
 Delete `out/soong` as well as `out/target/product/hwjdn/recovery`. The theme
 is installed by a Soong plugin that runs at analysis time, and a cached
 result leaves `/twres` missing — the build still reports success, and TWRP
-then crash-loops on "unable to load theme".
+then crash-loops on "unable to load theme". The crave script checks for it.
 
 ## Notes on this port
 
-Huawei published neither kernel source nor a device tree for this model, so
-most of it was recovered from the device and its stock firmware.
+When this port started, neither kernel source nor a device tree existed for
+this model, so most of it was recovered from the device and its stock
+firmware. Huawei's JDN kernel source surfaced later and is what the
+`jdn-pad-power` kernel ports from.
 
 - **Boot header** — `pagesize` 2048, `ramdisk_offset` 0x01000000,
   `tags_offset` 0x00000100. Both offsets differ from the usual msm8939
@@ -80,30 +98,36 @@ most of it was recovered from the device and its stock firmware.
 - **Separated DT** — Android 11's mkbootimg has no `--dt`, and `--dtb` is a
   header v2 field, which this 2016 bootloader cannot parse. The tree ships a
   legacy mkbootimg and overrides the image rule via `BOARD_CUSTOM_BOOTIMG_MK`.
-- **Backlight** — sits on three GPIOs that no CAF property name covers, so
-  `/sys/class/leds/lcd-backlight/brightness` accepted values and lit nothing
-  until the kernel was taught to drive them.
+- **Backlight** — the panel is lit through three GPIOs no CAF property name
+  covers and dimmed by a TI LM36923 at i2c-0 `0x36`. The first release only
+  switched the GPIOs; the current kernel drives the LM36923 with Huawei's
+  power sequence and brightness curve.
 - **Touch** — the DTS offers three digitisers; this unit has the Novatek. Its
   chip ID cannot be read, but it runs its own firmware and reports in the
   standard Novatek point format, so a minimal driver was written against the
   packets captured from the bus.
 
-`tools/` holds the utilities written along the way: an UPDATE.APP splitter,
-a QCDT reader and writer, the i2c probes used to identify the touch
-controller, and the DTS fix-up.
+`tools/` holds the i2c probes used to identify the touch controller
+(`nvtid.c`, `nvtread.c`), the installer that generated this tree's first
+revision, and the first backlight patch, now part of the kernel.
 
 ## Kernel
 
-https://github.com/Shaheddan/android_kernel_huawei_jdnl01
+https://github.com/Shaheddan/android_kernel_huawei_hwjdn (`jdn-pad-power`)
 
-`prebuilt/Image` and `prebuilt/dt.img` are built from that source and are
+`prebuilt/Image` and `prebuilt/dt.img` are built from that source and
 included so this tree builds without a kernel build first.
+`prebuilt/PREBUILT-INFO.txt` records the kernel commit, the dtbtool revision
+and their checksums. `dt.img` is packed with LineageOS's dtbtool the same way
+the LineageOS build packs the ROM's (`-2`, page size 2048), from the three
+jdn DTBs only.
 
 ## Credits
 
 - **@mohammadsa9** — the kiwi (Honor 5X) kernel this port's kernel is based
   on, and the patched `system/core` that makes adb work on a 3.10 kernel.
   Neither this recovery nor the kernel would exist without that work.
+- Huawei, for the JDN kernel source, and the JDN-W09 owner who shared it.
 - TeamWin, for TWRP.
 
 ## License
