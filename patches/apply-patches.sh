@@ -1,16 +1,16 @@
 #!/bin/bash
 # Applies hwjdn's platform patches to a synced LineageOS tree.
-#   bash device/huawei/hwjdn/patches/apply-patches.sh [lineage-19.1]
-# Run from the top of the tree; the default patch set is lineage-19.1.
+#   bash device/huawei/hwjdn/patches/apply-patches.sh [lineage-20|lineage-19.1]
+# Run from the top of the tree; the default patch set is lineage-20.
 # Patches already present (same subject in the project's recent history) are
 # skipped, so running it twice is safe, e.g. on a reused Crave tree.
 # WHY a fixed git identity: git am refuses to commit without one, and build
 #   machines (Crave nodes) usually have none configured.
 # WHY no --3way: it needs the patches' pre-image blobs, which shallow
-#   (--depth=1) trees do not have; the set was exported from a tree synced to
-#   LineageOS lineage-19.1 itself.
+#   (--depth=1) trees do not have; each set was exported from a tree synced to
+#   that LineageOS branch itself.
 set -e
-ver=${1:-lineage-19.1}
+ver=${1:-lineage-20}
 top=$(pwd)
 base="$(cd "$(dirname "$0")" && pwd)/$ver"
 [ -d "$top/.repo" ] || { echo "run this from the top of the LineageOS tree"; exit 1; }

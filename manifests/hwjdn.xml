@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   hwjdn device, kernel and vendor, plus what they need from kiwi, for
-  LineageOS 19.1. The msm8916 CAF HALs and dtbtool are in hwjdn-support.xml.
+  LineageOS 20. The msm8916 CAF HALs and dtbtool are in hwjdn-support.xml.
 
   WHY declared here rather than hand-copied: an unmanaged directory is pruned
   by ANY repo sync, even one scoped to a single project. That destroyed
   device/qcom/sepolicy-legacy and its local commits during the 19.1 port.
 
   - kernel at kernel/huawei/jdn, not .../hwjdn: BoardConfig.mk's
-    TARGET_KERNEL_SOURCE names that path.
+    TARGET_KERNEL_SOURCE names that path. Its lineage-20 branch is kiwi's
+    lineage-20-ebpf kernel with hwjdn's own commits on top.
   - device/huawei/kiwi: hardware/qcom-caf/wlan links libwcnss_qmi by module
     name and kiwi's tree provides it; hwjdn does not carry its own copy, as
     the two would collide. vendor/huawei/kiwi: kiwi's light HAL imports
     that namespace. kiwi itself is not built.
-  - jdn-pad-power: the Huawei JDN source port and W09/AL00 support, under
-    test; lineage-19.1 is the published release.
+  - sepolicy-legacy: no lineage-20 branch exists upstream; this is the fork
+    kiwi's Android 13 port carries.
 -->
 <manifest>
 
@@ -23,26 +24,26 @@
 
   <project path="device/huawei/hwjdn"
            name="android_device_huawei_hwjdn"
-           remote="shaheddan" revision="jdn-pad-power" />
+           remote="shaheddan" revision="lineage-20" />
 
   <project path="kernel/huawei/jdn"
            name="android_kernel_huawei_hwjdn"
-           remote="shaheddan" revision="jdn-pad-power" />
+           remote="shaheddan" revision="lineage-20" />
 
   <project path="vendor/huawei/hwjdn"
            name="proprietary_vendor_huawei_hwjdn"
-           remote="shaheddan" revision="lineage-19.1" />
+           remote="shaheddan" revision="lineage-20" />
 
   <project path="device/huawei/kiwi"
            name="android_device_huawei_kiwi"
-           remote="shaheddan" revision="lineage-19.1" />
+           remote="shaheddan" revision="lineage-20" />
 
   <project path="vendor/huawei/kiwi"
            name="proprietary_vendor_huawei_kiwi"
-           remote="shaheddan" revision="lineage-19.1" />
+           remote="shaheddan" revision="lineage-20" />
 
   <project path="device/qcom/sepolicy-legacy"
            name="android_device_qcom_sepolicy-legacy"
-           remote="shaheddan" revision="lineage-19.1" />
+           remote="shaheddan" revision="lineage-20" />
 
 </manifest>
