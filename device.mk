@@ -108,23 +108,24 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-impl \
     android.hardware.bluetooth@1.0-service \
-    android.hardware.bluetooth@1.0.vendor \
     libbt-vendor \
     init.qcom.bt.sh
 
 # Camera
 PRODUCT_PACKAGES += \
     android.hardware.camera.provider@2.4-impl-legacy \
+    android.hardware.camera.provider@2.4-service \
     camera.device@1.0-impl-legacy \
     camera.msm8916 \
-    libmm-qcamera \
     Camera2
 
 # Compatibility
 # libshim_signinfolistener is NOT built: it shims the fingerprint stack's
 # signinfolistener binary, which this device neither has nor ships.
 PRODUCT_PACKAGES += \
-    libshim_cutils_hwjdn
+    libshim_cutils_hwjdn \
+    libshim_btaddr_hwjdn \
+    libshim_powermanager_hwjdn
 
 # Display
 PRODUCT_PACKAGES += \
@@ -154,17 +155,11 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.4-service.clearkey \
-    android.hardware.drm@1.3.vendor
-
-# Encryption
-PRODUCT_PACKAGES += \
-    vendor.qti.hardware.cryptfshw@1.0-service-qti.qsee
+    android.hardware.drm@1.4-service.clearkey
 
 # Filesystem
 PRODUCT_PACKAGES += \
-    e2fsck \
-    make_ext4fs
+    e2fsck
 
 # FM
 PRODUCT_PACKAGES += \
@@ -199,9 +194,7 @@ PRODUCT_PACKAGES += \
     android.hidl.base@1.0 \
     android.hidl.manager@1.0 \
     libhidltransport \
-    libhidltransport.vendor \
-    libhwbinder \
-    libhwbinder.vendor
+    libhwbinder
 
 # Health
 PRODUCT_PACKAGES += \
@@ -239,7 +232,6 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/media_codecs_performance.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_performance.xml
 
 PRODUCT_PACKAGES += \
-    libdashplayer \
     libmm-omxcore \
     libOmxAacEnc \
     libOmxAmrEnc \
@@ -247,8 +239,6 @@ PRODUCT_PACKAGES += \
     libOmxEvrcEnc \
     libOmxQcelp13Enc \
     libOmxVdec \
-    libOmxVdecHevc \
-    libOmxSwVencHevc \
     libOmxVenc \
     libOmxVidcCommon \
     libstagefrighthw
@@ -258,12 +248,6 @@ PRODUCT_PACKAGES += \
     android.hardware.power-service-qti \
     android.hardware.power.stats@1.0-service.mock
 
-# Radio
-PRODUCT_PACKAGES += \
-    android.hardware.radio@1.6.vendor \
-    android.hardware.radio.config@1.3.vendor \
-    android.hardware.radio.deprecated@1.0.vendor \
-    android.hardware.secure_element@1.2.vendor
 
 # Ramdisk
 PRODUCT_PACKAGES += \
@@ -362,22 +346,54 @@ ifneq ($(QCPATH),)
 PRODUCT_BOOT_JARS += WfdCommon
 endif
 
-# 19.1 additions (ref: Moto msm8916 19.1)
-PRODUCT_PACKAGES += \
-    android.system.net.netd@1.1.vendor
 
 PRODUCT_PACKAGES += \
     CellBroadcastAppPlatform \
     CellBroadcastServiceModulePlatform
 
+# The platform (non-APEX) CellBroadcast variants need the privapp allowlists
+# that normally ship inside the com.android.cellbroadcast APEX. Without them,
+# ro.control_privapp_permissions=enforce makes system_server throw at
+# systemReady and crash-loop behind the boot animation. An allowlist is only
+# read from the same partition as its app: receiver in system_ext, service in
+# system.
+PRODUCT_COPY_FILES += \
+    packages/apps/CellBroadcastReceiver/apex/permissions/com.android.cellbroadcastreceiver.xml:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/permissions/com.android.cellbroadcastreceiver.xml \
+    packages/apps/CellBroadcastReceiver/apex/permissions/com.android.cellbroadcastservice.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/com.android.cellbroadcastservice.xml
+
 # Scudo allocator is too heavy for 2-3 GB RAM
 PRODUCT_DISABLE_SCUDO := true
 
-# Set from the product (init, coredomain) rather than a vendor rc: vendor_init
-# may not set default_prop (system_internal), and losing
-# ro.kernel.ebpf.supported makes the critical bpfloader service fail and reboot
-# the device under enforcing.
+# ro.kernel.ebpf.supported is deliberately left unset: the lineage-20 kernel
+# (kiwi's eBPF backport) provides bpf(), cgroup-bpf and cgroup v2, and every
+# userspace eBPF workaround in the platform patches reads it with a default of
+# true. If it ever has to be forced to false again, set it here (product/init
+# scope): vendor_init may not set default_prop, and losing it makes the
+# critical bpfloader service reboot the device under enforcing.
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.kernel.ebpf.supported=false \
     ro.adb.nonblocking_ffs=0 \
     persist.adb.nonblocking_ffs=0
+
+# Bluetooth (Android 13)
+# Same WCNSS Bluetooth stack as kiwi, whose firmware only speaks the v0.55
+# vendor capabilities and answers APCF "read extended features" (0xFD57/0xFF)
+# with a malformed reply, which makes the stack abort at start-up.
+PRODUCT_VENDOR_PROPERTIES += \
+    bluetooth.le.disable_apcf_extended_features=1
+
+# Profiles are opt-in per device since Android 13; these are the phone-side
+# classic profiles this Bluetooth 4.1 controller can serve (no LE Audio).
+PRODUCT_VENDOR_PROPERTIES += \
+    bluetooth.profile.a2dp.source.enabled=true \
+    bluetooth.profile.avrcp.target.enabled=true \
+    bluetooth.profile.bas.client.enabled=true \
+    bluetooth.profile.gatt.enabled=true \
+    bluetooth.profile.hfp.ag.enabled=true \
+    bluetooth.profile.hid.device.enabled=true \
+    bluetooth.profile.hid.host.enabled=true \
+    bluetooth.profile.map.server.enabled=true \
+    bluetooth.profile.opp.enabled=true \
+    bluetooth.profile.pan.nap.enabled=true \
+    bluetooth.profile.pan.panu.enabled=true \
+    bluetooth.profile.pbap.server.enabled=true \
+    bluetooth.profile.sap.server.enabled=true

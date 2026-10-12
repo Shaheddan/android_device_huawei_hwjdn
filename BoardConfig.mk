@@ -253,4 +253,14 @@ TARGET_LD_SHIM_LIBS := \
     /system/vendor/lib/libchromatix_imx219_ofilm_pad_zsl_preview.so|libshim_cutils_hwjdn.so:\
     /system/vendor/lib/libdmd.so|libshim_cutils_hwjdn.so:\
     /system/vendor/lib64/libdmd.so|libshim_cutils_hwjdn.so:\
-    /system/vendor/bin/thermal-engine|libshim_cutils_hwjdn.so
+    /system/vendor/bin/thermal-engine|libshim_cutils_hwjdn.so:\
+    /system/vendor/lib64/libbtaddr.so|libshim_btaddr_hwjdn.so:\
+    /system/vendor/lib64/libmm-abl.so|libshim_powermanager_hwjdn.so
+
+# Dexpreopt
+# eng builds default to pre-opting only the boot image and system server, so
+# every app is compiled on the phone at first boot. On kiwi that first boot
+# ran 15+ minutes, and the 3.10 kernel has no pidfd_open, so installd cannot
+# time out a stuck dex2oat. Pre-opt everything at build time, as user and
+# userdebug builds do.
+WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := false

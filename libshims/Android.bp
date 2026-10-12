@@ -19,13 +19,34 @@ soong_namespace {
 cc_library_shared {
     // Renamed for hwjdn: kiwi's copy of this module sits in the root Soong
     // namespace and Make's module table is flat, so two modules named
-    // libshim_cutils collide in base_rules.mk whatever Soong does. stem keeps
-    // the installed filename libshim_cutils.so, which is what BoardConfig.mk's
-    // TARGET_LD_SHIM_LIBS entries key on.
+    // libshim_cutils collide in base_rules.mk whatever Soong does. It installs
+    // as libshim_cutils_hwjdn.so, the name BoardConfig.mk's
+    // TARGET_LD_SHIM_LIBS entries use.
     name: "libshim_cutils_hwjdn",
     srcs: [
         "hw_cutils.c",
         "hw_log.c",
     ],
 
+}
+
+// Huawei's libbtaddr.so (used by hci_qcomm_init, which downloads the WCNSS
+// Bluetooth firmware) calls set_sched_policy(), which moved from libcutils to
+// libprocessgroup; without it hci_qcomm_init can't link and Bluetooth never
+// starts. Kept separate from libshim_cutils_hwjdn so no other blob gets this
+// symbol. Same shim as kiwi's Android 13 tree, named for hwjdn like the one above.
+cc_library_shared {
+    name: "libshim_btaddr_hwjdn",
+    srcs: ["btaddr.c"],
+    compile_multilib: "64",
+}
+
+// Huawei's libmm-abl.so (mm-pp-daemon, display post-processing) was built against
+// Android 5.1's native IPowerManager, which libpowermanager no longer provides, so
+// the daemon cannot link and init restarts it every 5 s.
+cc_library_shared {
+    name: "libshim_powermanager_hwjdn",
+    srcs: ["powermanager.cpp"],
+    shared_libs: ["libbinder", "libutils"],
+    compile_multilib: "64",
 }

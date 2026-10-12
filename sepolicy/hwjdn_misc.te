@@ -17,8 +17,12 @@ get_prop(system_server, exported_camera_prop)
 # and reports "Can't connect to the camera" under enforcing.
 get_prop(appdomain, vendor_display_prop)
 
-# oeminfo_nvm_ser traverses /sys/.../block to locate the oeminfo partition
-allow oeminfo sysfs_block:dir search;
+# oeminfo_nvm_ser traverses /sys/.../block to locate the oeminfo partition.
+# A13 dropped sysfs_block; /devices/virtual/block is sysfs_devices_block and
+# non-virtual block paths fall through to plain sysfs. Confirm which one is
+# actually needed during the enforcing harvest.
+allow oeminfo sysfs_devices_block:dir search;
+allow oeminfo sysfs:dir search;
 
 # ---- enforcing-boot harvest (2026-07-30) ----
 # Grantable property reads seen during a permissive boot
