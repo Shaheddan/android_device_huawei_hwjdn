@@ -14,7 +14,7 @@ import android.util.Log;
 import java.io.FileOutputStream;
 
 public class BypassService extends Service {
-    private static final String TAG = "KiwiBypass";
+    private static final String TAG = "JdnBypass";
     private static final String NODE = "/sys/class/power_supply/battery/factory_diag";
     private static final int HYSTERESIS = 2;
 
