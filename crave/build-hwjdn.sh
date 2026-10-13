@@ -29,6 +29,27 @@ done
 /opt/crave/resync.sh || { echo "!! resync failed"; exit 1; }
 bash device/huawei/hwjdn/patches/apply-patches.sh lineage-19.1 || { echo "!! hwjdn patches failed"; exit 1; }
 
+# Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
+# builds). LineageOS's gcc-4.9 "gcc" is itself a python wrapper that execs real-<its own file
+# name>, so after the rename it looks for real-mbt-bin-<name> and the kernel build dies. Point
+# those names at the real binaries; harmless where nothing was renamed.
+for t in aarch64/aarch64-linux-android-4.9:aarch64-linux-android arm/arm-linux-androideabi-4.9:arm-linux-androideabi; do
+  d=prebuilts/gcc/linux-x86/${t%%:*}/bin
+  p=${t##*:}
+  for c in gcc g++; do
+    [ -e "$d/real-$p-$c" ] && ln -sfn "real-$p-$c" "$d/real-mbt-bin-$p-$c"
+  done
+  echo "hwjdn: toolchain wrappers in $d:"
+  ls -la "$d" | grep -E "mbt-bin|real-|$p-gcc\$|androidkernel-gcc" | sed 's/^/hwjdn:   /'
+done
+
 source build/envsetup.sh
 lunch "lineage_hwjdn-$VARIANT" || { echo "!! lunch failed"; exit 1; }
-mka bacon
+mka bacon || { echo "!! build failed"; exit 1; }
+# With GH_TOKEN set, upload the zip to a GitHub pre-release before Crave clears out/.
+if [ -n "${GH_TOKEN:-}" ]; then
+  ZIP=$(ls -t out/target/product/hwjdn/lineage-19.1-*-hwjdn.zip 2>/dev/null | head -1)
+  [ -n "$ZIP" ] || { echo "!! no lineage-19.1 zip in out/target/product/hwjdn"; exit 1; }
+  BRANCH=jdn-pad-power bash device/huawei/hwjdn/crave/upload-github.sh hwjdn-lineage-19.1 "$ZIP" \
+    || { echo "!! upload failed"; exit 1; }
+fi
