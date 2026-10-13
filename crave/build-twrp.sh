@@ -38,3 +38,10 @@ for f in splash.xml ui.xml; do
 done
 ls -la "$OUT/recovery.img"
 echo "TWRP for hwjdn built."
+# With GH_TOKEN set, upload the image to a GitHub pre-release before Crave clears out/.
+if [ -n "${GH_TOKEN:-}" ]; then
+  IMG=/tmp/twrp-3.7-hwjdn-$(date -u +%Y%m%d).img
+  cp "$OUT/recovery.img" "$IMG" || { echo "!! could not copy recovery.img"; exit 1; }
+  BRANCH=twrp-variants bash device/huawei/hwjdn/crave/upload-github.sh hwjdn-twrp "$IMG" \
+    || { echo "!! upload failed"; exit 1; }
+fi
