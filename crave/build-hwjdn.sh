@@ -26,6 +26,25 @@ done
 /opt/crave/resync.sh || { echo "!! resync failed"; exit 1; }
 bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn patches failed"; exit 1; }
 
+# LineageOS 19.1/20 still compile RenderScript's libclcore.bc with the old prebuilt
+# clang-3289846, which needs libncurses.so.5 and libtinfo.so.5. Crave's Debian 13 build
+# image only has the .so.6 versions, so that clang cannot start ("error while loading
+# shared libraries: libncurses.so.5"). The only ncurses functions it uses (setupterm,
+# tigetnum, set_curterm, del_curterm) are unversioned imports that libtinfo.so.6 provides,
+# so point the .so.5 names at the system's .so.6 inside that clang's own lib64, which its
+# RPATH ($ORIGIN/../lib64) searches first. Nothing outside that directory changes.
+RSCLANG=prebuilts/clang/host/linux-x86/clang-3289846
+if [ -x "$RSCLANG/bin/clang.real" ] && ! "$RSCLANG/bin/clang.real" --version >/dev/null 2>&1; then
+  TINFO6=$(ls /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /lib/x86_64-linux-gnu/libtinfo.so.6 2>/dev/null | head -1)
+  NCURSES6=$(ls /usr/lib/x86_64-linux-gnu/libncurses.so.6 /lib/x86_64-linux-gnu/libncurses.so.6 2>/dev/null | head -1)
+  [ -n "$TINFO6" ] || { echo "!! no libtinfo.so.6 on this host for $RSCLANG"; exit 1; }
+  ln -sfn "$TINFO6" "$RSCLANG/lib64/libtinfo.so.5"
+  ln -sfn "${NCURSES6:-$TINFO6}" "$RSCLANG/lib64/libncurses.so.5"
+  "$RSCLANG/bin/clang.real" --version >/dev/null 2>&1 \
+    || { echo "!! $RSCLANG still cannot start:"; "$RSCLANG/bin/clang.real" --version; exit 1; }
+  echo "hwjdn: $RSCLANG runs with libncurses.so.5 -> ${NCURSES6:-$TINFO6}, libtinfo.so.5 -> $TINFO6"
+fi
+
 # Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
 # builds). LineageOS's gcc-4.9 "gcc" is itself a python wrapper that execs real-<its own file
 # name>, so after the rename it looks for real-mbt-bin-<name> and the kernel build dies. Point
