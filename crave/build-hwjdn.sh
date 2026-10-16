@@ -29,17 +29,23 @@ bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn
 # LineageOS 19.1/20 run old host tools that need libncurses.so.5 and libtinfo.so.5:
 #  - prebuilts/clang/host/linux-x86/clang-3289846 (clang.real, llvm-link, ...), which
 #    compiles RenderScript's libclcore.bc (crave build 305623 stopped there at 14%);
-#  - host tools built in the tree against the glibc 2.17 sysroot's ncurses 5, such as
-#    bcc_strip_attr through libLLVM_android.so (crave build 305713 stopped there at 42%).
+#  - tools built in the tree against the glibc 2.17 sysroot's ncurses 5 through
+#    libLLVM_android.so: bcc_strip_attr, which make runs from out/host/linux-x86/bin (crave
+#    build 305713, 42%), and llvm-rs-cc, which 19.1's soong runs from
+#    out/soong/host/linux-x86/bin for RenderScript sources such as libstagefright_mediafilter
+#    (HostToolPath in android/config.go; crave build 305971, 21%). 20's soong runs it from
+#    out/host/linux-x86/bin instead;
+#  - the RenderScript tools in prebuilts/sdk/tools/linux (bcc_compat, llvm-rs-cc).
 # Crave's Debian 13 image only has the .so.6 versions. The ncurses functions these tools
 # import are unversioned, and the .so.6 libraries provide them, so .so.5 names pointing at
-# the system's .so.6 are enough. The links must sit in a directory each tool's RUNPATH
-# ($ORIGIN/../lib64) searches: soong_ui hands ninja only an allowlist of environment
-# variables and LD_LIBRARY_PATH is not on it, so exporting it here would never reach the
-# build. Soong's cleanups only delete files a module installed earlier, so links in
-# out/host/linux-x86/lib64 survive; they are made again on every run anyway.
+# the system's .so.6 are enough. Each of these trees keeps its tools in bin/ and their
+# libraries in lib64/, which soong-built tools reach through RUNPATH $ORIGIN/../lib64, so
+# the links go in each tree's lib64. LD_LIBRARY_PATH would not work: soong_ui hands ninja
+# only an allowlist of environment variables and it is not on it. Soong's cleanups only
+# delete files a module installed earlier, so links under out/ survive; they are made
+# again on every run anyway.
 RSCLANG=prebuilts/clang/host/linux-x86/clang-3289846
-HWJDN_HOSTLIB=${OUT_DIR:-out}/host/linux-x86/lib64
+HWJDN_O=${OUT_DIR:-out}
 HWJDN_NC5=0
 for n in libncurses.so.5 libtinfo.so.5; do
   ls "/lib/x86_64-linux-gnu/$n" "/usr/lib/x86_64-linux-gnu/$n" "/lib64/$n" "/usr/lib64/$n" >/dev/null 2>&1 \
@@ -49,26 +55,37 @@ if [ "$HWJDN_NC5" = 1 ]; then
   TINFO6=$(ls /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /lib/x86_64-linux-gnu/libtinfo.so.6 2>/dev/null | head -1)
   NCURSES6=$(ls /usr/lib/x86_64-linux-gnu/libncurses.so.6 /lib/x86_64-linux-gnu/libncurses.so.6 2>/dev/null | head -1)
   [ -n "$TINFO6" ] || { echo "!! no libtinfo.so.6 on this host"; exit 1; }
-  HWJDN_DIRS="$HWJDN_HOSTLIB"
-  [ -d "$RSCLANG/lib64" ] && HWJDN_DIRS="$RSCLANG/lib64 $HWJDN_DIRS"
-  for d in $HWJDN_DIRS; do
-    mkdir -p "$d" || { echo "!! cannot create $d"; exit 1; }
-    ln -sfn "$TINFO6" "$d/libtinfo.so.5"
-    ln -sfn "${NCURSES6:-$TINFO6}" "$d/libncurses.so.5"
-  done
-  echo "hwjdn: libncurses.so.5 -> ${NCURSES6:-$TINFO6}, libtinfo.so.5 -> $TINFO6 in: $HWJDN_DIRS"
-  # Check every tool already on disk that the build runs from these trees (out/host only
-  # exists when the workspace kept an earlier build). A missing name there is fatal now
-  # rather than an hour into the build; one in prebuilts/sdk is only reported, as data.
-  HWJDN_BAD=; HWJDN_WARN=; HWJDN_N=0
-  for f in "$RSCLANG"/bin/* "${OUT_DIR:-out}"/host/linux-x86/bin/* prebuilts/sdk/tools/linux/bin/*; do
-    [ -f "$f" ] && [ -x "$f" ] || continue
-    HWJDN_N=$((HWJDN_N + 1))
-    l=$(ldd "$f" 2>/dev/null) || true
-    case "$l" in
-      *"libncurses.so.5 => not found"*|*"libtinfo.so.5 => not found"*)
-        case "$f" in prebuilts/sdk/*) HWJDN_WARN="$HWJDN_WARN $f" ;; *) HWJDN_BAD="$HWJDN_BAD $f" ;; esac ;;
+  HWJDN_TREES="$RSCLANG prebuilts/sdk/tools/linux $HWJDN_O/host/linux-x86 $HWJDN_O/soong/host/linux-x86"
+  HWJDN_DIRS=
+  for t in $HWJDN_TREES; do
+    # out/ trees may not exist yet on a fresh workspace; their tools are built later and
+    # must find the links then. Source trees are only touched where they exist.
+    case "$t" in
+      "$HWJDN_O"/*) mkdir -p "$t/lib64" || { echo "!! cannot create $t/lib64"; exit 1; } ;;
+      *) [ -d "$t/lib64" ] || continue ;;
     esac
+    ln -sfn "$TINFO6" "$t/lib64/libtinfo.so.5"
+    ln -sfn "${NCURSES6:-$TINFO6}" "$t/lib64/libncurses.so.5"
+    HWJDN_DIRS="$HWJDN_DIRS $t/lib64"
+  done
+  echo "hwjdn: libncurses.so.5 -> ${NCURSES6:-$TINFO6}, libtinfo.so.5 -> $TINFO6 in:$HWJDN_DIRS"
+  # Check every tool already on disk in those trees (out/ ones exist only when the
+  # workspace kept an earlier build). One that still misses a name is fatal now rather than
+  # 20 minutes into the build, except in prebuilts/sdk, which a platform build may never
+  # run: that one is reported with its dynamic section, so the log has the data to fix it.
+  HWJDN_BAD=; HWJDN_WARN=; HWJDN_N=0
+  for t in $HWJDN_TREES; do
+    for f in "$t"/bin/*; do
+      [ -f "$f" ] && [ -x "$f" ] || continue
+      HWJDN_N=$((HWJDN_N + 1))
+      l=$(ldd "$f" 2>/dev/null) || true
+      case "$l" in
+        *"libncurses.so.5 => not found"*|*"libtinfo.so.5 => not found"*)
+          echo "hwjdn: $f still misses ncurses 5; NEEDED/RUNPATH:"
+          readelf -d "$f" 2>&1 | grep -E 'NEEDED|RPATH|RUNPATH|readelf' | sed 's/^/hwjdn:   /'
+          case "$f" in prebuilts/sdk/*) HWJDN_WARN="$HWJDN_WARN $f" ;; *) HWJDN_BAD="$HWJDN_BAD $f" ;; esac ;;
+      esac
+    done
   done
   [ -z "$HWJDN_WARN" ] || echo "hwjdn: WARNING, still no libncurses.so.5/libtinfo.so.5 for:$HWJDN_WARN"
   [ -z "$HWJDN_BAD" ] || { echo "!! still no libncurses.so.5/libtinfo.so.5 for:$HWJDN_BAD"; exit 1; }
@@ -76,7 +93,7 @@ if [ "$HWJDN_NC5" = 1 ]; then
     "$RSCLANG/bin/clang.real" --version >/dev/null 2>&1 \
       || { echo "!! $RSCLANG still cannot start:"; "$RSCLANG/bin/clang.real" --version; exit 1; }
   fi
-  echo "hwjdn: checked $HWJDN_N host tools; all in $RSCLANG and out/host load libncurses.so.5/libtinfo.so.5"
+  echo "hwjdn: checked $HWJDN_N host tools in:$HWJDN_DIRS (bin/ beside each)"
 fi
 
 # Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
