@@ -23,6 +23,25 @@ for m in hwjdn.xml hwjdn-support.xml; do
   curl -sfL "$RAW/manifests/$m" -o ".repo/local_manifests/$m" || { echo "!! could not fetch $m"; exit 1; }
 done
 
+# Crave keeps .repo between jobs, and LineageOS 19.1 and 20 share this workspace. Crave
+# build 306322, the first LineageOS 20 job after the 19.1 ones, died in resync on
+# LineageOS/android_device_qcom_sepolicy_vndr: "You are attempting to fetch ad27d810...,
+# which is in the commit graph file but not in the object database". That store's
+# commit-graph (an index git writes during fetch and gc) still lists commits whose objects
+# are gone; git 2.55 refuses to fetch then, and resync.sh's retry deletes only the
+# checkout, not the shared object store, so it fails the same way. A commit-graph is only
+# an index: deleting it loses nothing, and the next fetch brings back whatever is really
+# missing (reproduced with git 2.55: same error before, clean fetch after). The find skips
+# the loose-object and pack directories so it stays quick.
+if [ -d .repo ]; then
+  HWJDN_CG=$(find .repo/project-objects .repo/projects \
+      -path '*/objects/??' -prune -o -path '*/objects/pack' -prune -o \
+      \( -name commit-graph -o -name commit-graphs \) -path '*/objects/info/*' -print 2>/dev/null)
+  printf '%s\n' "$HWJDN_CG" | grep . | xargs -r rm -rf
+  echo "hwjdn: removed $(printf '%s\n' "$HWJDN_CG" | grep -c .) commit-graph indexes under .repo"
+  [ -z "$(find .repo/project-objects .repo/projects -path '*/objects/??' -prune -o -path '*/objects/pack' -prune -o \( -name commit-graph -o -name commit-graphs \) -path '*/objects/info/*' -print 2>/dev/null)" ] \
+    || { echo "!! commit-graph indexes still present under .repo"; exit 1; }
+fi
 /opt/crave/resync.sh || { echo "!! resync failed"; exit 1; }
 bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn patches failed"; exit 1; }
 
