@@ -45,6 +45,31 @@ fi
 /opt/crave/resync.sh || { echo "!! resync failed"; exit 1; }
 bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn patches failed"; exit 1; }
 
+# Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
+# builds). LineageOS's gcc-4.9 "gcc" is itself a python wrapper that execs real-<its own file
+# name>, so after the rename it looks for real-mbt-bin-<name> and the kernel build dies. Point
+# those names at the real binaries; harmless where nothing was renamed.
+for t in aarch64/aarch64-linux-android-4.9:aarch64-linux-android arm/arm-linux-androideabi-4.9:arm-linux-androideabi; do
+  d=prebuilts/gcc/linux-x86/${t%%:*}/bin
+  p=${t##*:}
+  for c in gcc g++; do
+    [ -e "$d/real-$p-$c" ] && ln -sfn "real-$p-$c" "$d/real-mbt-bin-$p-$c"
+  done
+  echo "hwjdn: toolchain wrappers in $d:"
+  ls -la "$d" | grep -E "mbt-bin|real-|$p-gcc\$|androidkernel-gcc" | sed 's/^/hwjdn:   /'
+done
+
+source build/envsetup.sh
+lunch "lineage_hwjdn-$VARIANT" || { echo "!! lunch failed"; exit 1; }
+# soong_ui starts each build by running the tree's CleanSpec steps that are new to this
+# out/, and an installclean when the product or variant changed. Crave build 306425, the
+# first LineageOS 20 build in the workspace the 19.1 builds used, ran "Clean step: rm -rf
+# out/host/linux-x86" and "rm -rf out/soong/host" there, which deleted the ncurses links
+# made before it, so bcc_strip_attr failed at 35%. `m nothing` runs that whole start stage
+# (soong, CleanSpec, kati, installclean) and builds nothing; mka bacon then reuses its
+# results with nothing left to clean, so the links made after it stay.
+m nothing || { echo "!! m nothing failed"; exit 1; }
+
 # LineageOS 19.1/20 run old host tools that need libncurses.so.5 and libtinfo.so.5:
 #  - prebuilts/clang/host/linux-x86/clang-3289846 (clang.real, llvm-link, ...), which
 #    compiles RenderScript's libclcore.bc (crave build 305623 stopped there at 14%);
@@ -60,9 +85,9 @@ bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn
 # the system's .so.6 are enough. Each of these trees keeps its tools in bin/ and their
 # libraries in lib64/, which soong-built tools reach through RUNPATH $ORIGIN/../lib64, so
 # the links go in each tree's lib64. LD_LIBRARY_PATH would not work: soong_ui hands ninja
-# only an allowlist of environment variables and it is not on it. Soong's cleanups only
-# delete files a module installed earlier, so links under out/ survive; they are made
-# again on every run anyway.
+# only an allowlist of environment variables and it is not on it. The links are made
+# after `m nothing` (just above), never before it, because the start of a build can
+# rm -rf out/host/linux-x86 and out/soong/host.
 RSCLANG=prebuilts/clang/host/linux-x86/clang-3289846
 HWJDN_O=${OUT_DIR:-out}
 HWJDN_NC5=0
@@ -115,22 +140,6 @@ if [ "$HWJDN_NC5" = 1 ]; then
   echo "hwjdn: checked $HWJDN_N host tools in:$HWJDN_DIRS (bin/ beside each)"
 fi
 
-# Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
-# builds). LineageOS's gcc-4.9 "gcc" is itself a python wrapper that execs real-<its own file
-# name>, so after the rename it looks for real-mbt-bin-<name> and the kernel build dies. Point
-# those names at the real binaries; harmless where nothing was renamed.
-for t in aarch64/aarch64-linux-android-4.9:aarch64-linux-android arm/arm-linux-androideabi-4.9:arm-linux-androideabi; do
-  d=prebuilts/gcc/linux-x86/${t%%:*}/bin
-  p=${t##*:}
-  for c in gcc g++; do
-    [ -e "$d/real-$p-$c" ] && ln -sfn "real-$p-$c" "$d/real-mbt-bin-$p-$c"
-  done
-  echo "hwjdn: toolchain wrappers in $d:"
-  ls -la "$d" | grep -E "mbt-bin|real-|$p-gcc\$|androidkernel-gcc" | sed 's/^/hwjdn:   /'
-done
-
-source build/envsetup.sh
-lunch "lineage_hwjdn-$VARIANT" || { echo "!! lunch failed"; exit 1; }
 mka bacon || { echo "!! build failed"; exit 1; }
 # With GH_TOKEN set, upload the zip to a GitHub pre-release before Crave clears out/.
 if [ -n "${GH_TOKEN:-}" ]; then
