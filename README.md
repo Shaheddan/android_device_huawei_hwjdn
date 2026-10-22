@@ -38,13 +38,20 @@ zip on that check, please report it.
 
 ## Status
 
-**In bring-up.** The first LineageOS 20 build has not booted on the tablet
-yet. Everything kiwi needed on Android 13 is already in this tree, the
-kernel and the platform patches; what works will be listed here once it is
-tested on the tablet.
+**Working.** The first LineageOS 20 build (`hwjdn-lineage-20.0-20261022-0245`) runs on the
+developer's JDN-L01 with no known issues. The W09 and AL00 have not been
+tested yet; reports are welcome.
 
-For a daily driver, use the LineageOS 19.1 build (branches `lineage-19.1`
-and `jdn-pad-power`).
+## Download
+
+GitHub release [`hwjdn-lineage-20.0-20261022-0245`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-lineage-20.0-20261022-0245):
+
+- `lineage-20.0-20261022-UNOFFICIAL-hwjdn.zip`
+- SHA-256 `777b4abff98da589c50dd518af7bb8aef5a7ab7428247b31c30fbb0d03cb07de`
+
+Flash it with TWRP: release [`hwjdn-twrp-20261018-0447`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-twrp-20261018-0447) carries the L01, W09 and
+AL00 DTBs. Coming from Huawei's stock firmware, do a Factory Reset in TWRP
+first.
 
 ## Android 13 changes
 
@@ -144,17 +151,35 @@ eng/userdebug.
 From a folder set up for Crave's LOS 20 project:
 
     repo init -u https://github.com/accupara/los20.git -b lineage-20.0 --git-lfs
-    crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-20/crave/build-hwjdn.sh | bash"
+    crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-20/crave/build-hwjdn.sh | GH_TOKEN=<token> bash"
+
+With `GH_TOKEN` set (a fine-grained token with Contents read/write on this
+repository), the script uploads the zip to a GitHub pre-release before Crave
+clears `out/`. It also works around Crave's Debian 13 build image:
+
+- **ncurses 5.** RenderScript's old `clang-3289846`, `bcc_strip_attr`,
+  `llvm-rs-cc` and the `prebuilts/sdk` tools need `libncurses.so.5` and
+  `libtinfo.so.5`, which Debian 13 no longer ships. Their imports are
+  unversioned, so the script links the `.so.5` names to the system's `.so.6`
+  in the `lib64` of each host-tool tree, then checks every tool with `ldd`.
+  It does this after `m nothing`, because the start of a build can run clean
+  steps that delete `out/host` and `out/soong/host`.
+- **gcc wrappers.** Crave renames compilers to `mbt-bin-<name>`; LineageOS's
+  gcc 4.9 wrapper then looks for `real-mbt-bin-<name>`, so the script links
+  those names to the real binaries.
+- **Stale commit-graph indexes.** The workspace is shared with the 19.1
+  builds, and a commit-graph that names lost commits makes git refuse to
+  fetch, so the resync fails; the script deletes them before the resync.
 
 ## Branches
 
 | Branch | Contents |
 | :----- | :------- |
 | `main` | TWRP 3.7.0 device tree |
-| `twrp-variants` | TWRP with the W09 and AL00 DTBs (under test) |
+| `twrp-variants` | TWRP with the W09 and AL00 DTBs (works on the L01; W09/AL00 untested) |
 | `lineage-19.1` | LineageOS 19.1 release |
-| `jdn-pad-power` | LineageOS 19.1 with the Huawei JDN source work (under test) |
-| `lineage-20` | LineageOS 20 (this branch, in bring-up) |
+| `jdn-pad-power` | LineageOS 19.1 with the Huawei JDN source work (works on the L01) |
+| `lineage-20` | LineageOS 20 (this branch; works on the L01) |
 
 ## Kernel / vendor
 
