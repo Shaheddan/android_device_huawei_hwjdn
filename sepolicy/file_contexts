@@ -23,6 +23,12 @@
 # HALs
 /system/vendor/bin/hw/android\.hardware\.light@2\.0-service\.hwjdn                       u:object_r:hal_light_default_exec:s0
 
+# Same-process HALs: gralloc is loaded into coredomain processes (bootanim, apps). As
+# vendor_file, bootanim could not even stat it on kiwi's Android 14, libhardware fell back to
+# gralloc.default and every buffer from the allocator was an "invalid gralloc handle".
+/(vendor|system/vendor)/lib(64)?/hw/gralloc\.msm8916\.so    u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib(64)?/libmemalloc\.so            u:object_r:same_process_hal_file:s0
+
 # AIDL Power HAL, software Gatekeeper, and PowerStats mock (18.1 services;
 # labels absent from platform and sepolicy-legacy — added per Motorola msm8916 18.1 pattern)
 /(vendor|system/vendor)/bin/hw/android\.hardware\.gatekeeper@1\.0-service\.software    u:object_r:hal_gatekeeper_default_exec:s0

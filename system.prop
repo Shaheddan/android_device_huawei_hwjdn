@@ -40,6 +40,10 @@ dalvik.vm.heapsize=512m
 dalvik.vm.heaptargetutilization=0.75
 dalvik.vm.heapminfree=2m
 dalvik.vm.heapmaxfree=8m
+# eng turns on StrictMode detectAll + logging + dropbox for every bundled app (about a thousand
+# StrictMode log lines per boot on kiwi). Honoured by apps that may read system_prop (system uid,
+# e.g. Settings).
+persist.sys.strictmode.disable=true
 
 # Display
 dalvik.vm.zygotemaxfailedboots=5
@@ -56,6 +60,17 @@ debug.sf.latch_unsignaled=1
 persist.demo.hdmirotationlock=false
 persist.hwc.mdpcomp.enable=true
 persist.hwc.ptor.enable=true
+# Android 14's libEGL loads the driver by exact name (libEGL_<ro.hardware.egl>.so) and only
+# falls back to scanning /vendor/lib*/egl when ro.vendor.api_level < 34. The Adreno blobs are
+# libEGL_adreno.so / libGLESv1_CM_adreno.so / libGLESv2_adreno.so (as on kiwi).
+ro.hardware.egl=adreno
+# SurfaceFlinger's shader-cache priming builds an RGBA_FP16 texture; Adreno 405 cannot make an
+# EGLImage of it (EGL_BAD_ACCESS) and RenderEngine aborts with "Failed to create a valid texture".
+service.sf.prime_shader_cache=0
+# Zygote must not preload the GL driver: the 2015 Adreno blob (GCC-built) uses x18 as a scratch
+# register, and every app forked from zygote inherits the clobbered x18. Android 14's Bluetooth is
+# built with shadow call stack (x18 = shadow stack pointer) and crashed in its first function on kiwi.
+ro.zygote.disable_gl_preload=true
 # 196608 = GLES 3.0, this device's own stock value for these driver blobs.
 # kiwi declares 196610 (3.2) on the same Adreno 405; if GPU-heavy apps refuse
 # to install, 196609 (3.1) is the next value to try.
@@ -188,4 +203,6 @@ wifi.interface=wlan0
 # 19.1 (ref: Moto system_prop.mk)
 debug.renderengine.backend=threaded
 persist.sys.binary_xml=false
-ro.vndk.version=current
+# No ro.vndk.version: hwjdn has no VNDK APEX. Android 14's linkerconfig treats a defined
+# ro.vndk.version as VNDK-enabled and aborts when /apex/com.android.vndk.v<version> is
+# missing ("Undefined var SANITIZER_DEFAULT_VENDOR"), so no linker config is written.
