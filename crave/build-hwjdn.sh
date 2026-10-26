@@ -1,11 +1,12 @@
 #!/bin/bash
-# Build LineageOS 20 for hwjdn (Huawei MediaPad T2 8.0 Pro) on a Crave build node.
-# Start it from a local folder set up for Crave's LOS 20 project:
+# Build LineageOS 21 for hwjdn (Huawei MediaPad T2 8.0 Pro) on a Crave build node.
+# Start it from a local folder set up for Crave's LOS 20 project (the tablet's workspace):
 #   repo init -u https://github.com/accupara/los20.git -b lineage-20.0 --git-lfs
-#   crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-20/crave/build-hwjdn.sh | bash"
+#   crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-21/crave/build-hwjdn.sh | bash"
 # WHY each step:
-#  - LineageOS's own lineage-20.0 manifest (accupara/los20 points at the same
-#    commit); -pixel-extra keeps the Pixel/Tensor repos out, as kiwi's tree did;
+#  - Crave has no LineageOS 21 project, so the job re-initialises the workspace to
+#    Crave's own LineageOS 21 manifest, exactly as kiwi's LineageOS 21 builds do;
+#    -pixel-extra keeps the Pixel/Tensor repos out;
 #  - manifests fetched fresh, so the node builds exactly what is on GitHub;
 #  - /opt/crave/resync.sh instead of repo sync: Crave's rule, it manages their cache;
 #  - patches applied AFTER the resync, because a resync resets the platform repos;
@@ -13,9 +14,11 @@
 #    eng/userdebug, and kiwi's LineageOS 20 runs as userdebug.
 # No `set -e`: build/envsetup.sh is not written for it; critical steps fail explicitly.
 VARIANT=${VARIANT:-userdebug}
-RAW=https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-20
+RAW=https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-21
 
-repo init -u https://github.com/LineageOS/android.git -b lineage-20.0 --git-lfs -g default,-pixel-extra \
+# accupara/los21 has the same remotes and android-14.0.0_r67 tag as LineageOS/android
+# lineage-21.0 (checked for kiwi), so the manifests and patches fit as-is.
+repo init -u https://github.com/accupara/los21.git -b lineage-21.0 --git-lfs -g default,-pixel-extra \
   || { echo "!! repo init failed"; exit 1; }
 
 rm -rf .repo/local_manifests && mkdir -p .repo/local_manifests || exit 1
@@ -23,7 +26,7 @@ for m in hwjdn.xml hwjdn-support.xml; do
   curl -sfL "$RAW/manifests/$m" -o ".repo/local_manifests/$m" || { echo "!! could not fetch $m"; exit 1; }
 done
 
-# Crave keeps .repo between jobs, and LineageOS 19.1 and 20 share this workspace. Crave
+# Crave keeps .repo between jobs, and LineageOS 19.1, 20 and 21 share this workspace. Crave
 # build 306322, the first LineageOS 20 job after the 19.1 ones, died in resync on
 # LineageOS/android_device_qcom_sepolicy_vndr: "You are attempting to fetch ad27d810...,
 # which is in the commit graph file but not in the object database". That store's
@@ -43,7 +46,7 @@ if [ -d .repo ]; then
     || { echo "!! commit-graph indexes still present under .repo"; exit 1; }
 fi
 /opt/crave/resync.sh || { echo "!! resync failed"; exit 1; }
-bash device/huawei/hwjdn/patches/apply-patches.sh lineage-20 || { echo "!! hwjdn patches failed"; exit 1; }
+bash device/huawei/hwjdn/patches/apply-patches.sh lineage-21 || { echo "!! hwjdn patches failed"; exit 1; }
 
 # Crave wraps compilers by renaming each one to mbt-bin-<name> (seen on kiwi's LineageOS 21
 # builds). LineageOS's gcc-4.9 "gcc" is itself a python wrapper that execs real-<its own file
@@ -60,7 +63,8 @@ for t in aarch64/aarch64-linux-android-4.9:aarch64-linux-android arm/arm-linux-a
 done
 
 source build/envsetup.sh
-lunch "lineage_hwjdn-$VARIANT" || { echo "!! lunch failed"; exit 1; }
+# Android 14 lunch targets carry the release config; ap2a is LineageOS 21's, as on kiwi.
+lunch "lineage_hwjdn-ap2a-$VARIANT" || { echo "!! lunch failed"; exit 1; }
 # soong_ui starts each build by running the tree's CleanSpec steps that are new to this
 # out/, and an installclean when the product or variant changed. Crave build 306425, the
 # first LineageOS 20 build in the workspace the 19.1 builds used, ran "Clean step: rm -rf
@@ -70,7 +74,7 @@ lunch "lineage_hwjdn-$VARIANT" || { echo "!! lunch failed"; exit 1; }
 # results with nothing left to clean, so the links made after it stay.
 m nothing || { echo "!! m nothing failed"; exit 1; }
 
-# LineageOS 19.1/20 run old host tools that need libncurses.so.5 and libtinfo.so.5:
+# LineageOS 19.1/20/21 run old host tools that need libncurses.so.5 and libtinfo.so.5:
 #  - prebuilts/clang/host/linux-x86/clang-3289846 (clang.real, llvm-link, ...), which
 #    compiles RenderScript's libclcore.bc (crave build 305623 stopped there at 14%);
 #  - tools built in the tree against the glibc 2.17 sysroot's ncurses 5 through
@@ -143,8 +147,8 @@ fi
 mka bacon || { echo "!! build failed"; exit 1; }
 # With GH_TOKEN set, upload the zip to a GitHub pre-release before Crave clears out/.
 if [ -n "${GH_TOKEN:-}" ]; then
-  ZIP=$(ls -t out/target/product/hwjdn/lineage-20.0-*-hwjdn.zip 2>/dev/null | head -1)
-  [ -n "$ZIP" ] || { echo "!! no lineage-20.0 zip in out/target/product/hwjdn"; exit 1; }
-  BRANCH=lineage-20 bash device/huawei/hwjdn/crave/upload-github.sh hwjdn-lineage-20.0 "$ZIP" \
+  ZIP=$(ls -t out/target/product/hwjdn/lineage-21.0-*-hwjdn.zip 2>/dev/null | head -1)
+  [ -n "$ZIP" ] || { echo "!! no lineage-21.0 zip in out/target/product/hwjdn"; exit 1; }
+  BRANCH=lineage-21 bash device/huawei/hwjdn/crave/upload-github.sh hwjdn-lineage-21.0 "$ZIP" \
     || { echo "!! upload failed"; exit 1; }
 fi
