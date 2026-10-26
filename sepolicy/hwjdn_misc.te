@@ -124,3 +124,20 @@ allow system_app wificond:binder call;
 # sys.io.scheduler and cope without it, exactly like the default_prop reads
 # above.
 dontaudit vendor_init system_prop:property_service set;
+
+# ---- Android 14, from kiwi's enforcing harvest (kiwi lineage-21 ddd330a, 2026-10-20) ----
+# JdnParts' BypassService writes /sys/class/power_supply/battery/factory_diag; the path runs
+# through the BQ24296 power_supply/battery directory, which sepolicy-legacy labels
+# sysfs_battery_supply. factory_diag itself is relabelled in file_contexts.
+allow system_app sysfs_battery_supply:dir search;
+# The boot animation's GL driver reads the vendor display properties, as every app's does.
+get_prop(bootanim, vendor_display_prop)
+# The GNSS HAL reads gps.conf, sap.conf, izat.conf and flp.conf, which this tree installs in
+# /system/etc (the loc HAL and the blobs have those paths built in); without them it runs with
+# no XTRA/SUPL/NTP settings. Breaks a Treble neverallow (vendor reading /system), which the
+# userdebug build ignores like the other legacy rules (SELINUX_IGNORE_NEVERALLOWS).
+allow hal_gnss_default system_file:file r_file_perms;
+# mm-pp-daemon opens /dev/ion for its post-processing buffers.
+allow mm-pp-daemon ion_device:chr_file r_file_perms;
+# vendor_init evaluates property triggers on system_prop properties.
+get_prop(vendor_init, system_prop)

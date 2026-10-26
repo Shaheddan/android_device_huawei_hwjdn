@@ -5,3 +5,20 @@ dontaudit hal_graphics_composer_default default_prop:file { read open getattr ma
 dontaudit surfaceflinger vendor_default_prop:file { read open getattr map };
 dontaudit vold hal_bootctl_hwservice:hwservice_manager find;
 dontaudit netmgrd fs_bpf:dir search;
+
+# From kiwi's Android 14 enforcing harvest (kiwi lineage-21 ddd330a):
+# Every process's linker checks the TARGET_LD_SHIM_LIBS blobs with access(R_OK) (bionic
+# parse_LD_SHIM_LIBS) and skips the ones it cannot read; core processes may not read
+# vendor_file and never load those blobs. That is one denial per shim per process start, enough
+# to overflow the kernel's 5-per-second audit limit at boot and lose real denials with them.
+# Only `read` is silenced: a real failed open of a vendor file still logs { open }.
+dontaudit coredomain vendor_file:file read;
+# rild's legacy data scripts stat /system/bin/ip (its exec is dontaudited in rild.te) and
+# netmgrd's open /system/bin/iptables; both fall back. Other harmless probes:
+dontaudit rild system_file:file getattr;
+dontaudit rild system_data_file:dir getattr;
+dontaudit rild system_prop:file r_file_perms;
+dontaudit netmgrd system_file:file { open read };
+dontaudit vendor_init media_userdir_file:dir getattr;
+dontaudit vendor_init default_prop:property_service set;
+dontaudit hal_audio_default sysfs:dir read;
