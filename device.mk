@@ -155,7 +155,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.4-service.clearkey
+    android.hardware.drm-service.clearkey
 
 # Filesystem
 PRODUCT_PACKAGES += \
@@ -303,13 +303,9 @@ PRODUCT_SOONG_NAMESPACES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/thermal-engine.conf:$(TARGET_COPY_OUT_VENDOR)/etc/thermal-engine.conf
 
-# Trust
-PRODUCT_PACKAGES += \
-    vendor.lineage.trust@1.0-service
-
 # USB
 PRODUCT_PACKAGES += \
-    android.hardware.usb@1.0-service.basic \
+    android.hardware.usb@1.3-service.basic \
     com.android.future.usb.accessory
 
 # Vibrator
@@ -318,8 +314,11 @@ PRODUCT_PACKAGES += \
     android.hardware.vibrator@1.0-service
 
 # Wifi
+# The Wi-Fi HAL writes WIFI_DRIVER_FW_PATH_STA to /sys/module/wlan/parameters/fwpath, which
+# starts the built-in pronto driver and creates wlan0; without a HAL Wi-Fi never turns on.
+# Android 14 has no HIDL wifi@1.0-service.legacy any more, so this is the AIDL HAL (as kiwi).
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service.legacy \
+    android.hardware.wifi-service \
     libwpa_client \
     wificond \
     hostapd \
