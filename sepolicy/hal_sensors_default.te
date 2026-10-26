@@ -1,0 +1,18 @@
+# Android 14 runs the sensors HAL as android.hardware.sensors@1.0-service (hal_sensors_default)
+# instead of passthrough inside system_server, where 19.1 and 20 gave Huawei's sensors.hwjdn.so
+# system_server's rights. From kiwi's harvest of its own Huawei sensors blob (the same family):
+#  - /proc/app_info (board and sensor part information) and Huawei's oeminfo_nvm socket;
+#  - /data/misc/akmd_set.txt, the AKM compass calibration (path built into the blob; harmless
+#    here, where no compass answers on the bus), labelled sensors_data_file;
+#  - the sensors' input directories, labelled sysfs_sensors in file_contexts;
+#    sepolicy-legacy's hal_sensors.te already allows rw on sysfs_sensors and reads input_device.
+allow hal_sensors_default proc_app_info:file r_file_perms;
+unix_socket_connect(hal_sensors_default, oeminfo, oeminfo)
+allow hal_sensors_default sensors_data_file:file { rw_file_perms setattr };
+
+# TEMPORARY, first Android 14 build only: the paths above are kiwi's; which sysfs files the
+# tablet's blob opens for the BMA255 (bma2x2) and the AP3426 has never been recorded on this
+# tablet. Permissive here (globally the device stays enforcing) keeps rotation and auto-
+# brightness working on the first boot while still logging every denial; a harvest from that
+# boot replaces this line with the exact rules, as kiwi did for its new Android 14 HALs.
+permissive hal_sensors_default;

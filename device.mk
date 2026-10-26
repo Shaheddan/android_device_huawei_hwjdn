@@ -270,7 +270,10 @@ PRODUCT_PACKAGES += \
     android.hardware.renderscript@1.0-impl
 
 # RIL
+# Android 14 telephony needs IRadio 1.4 or newer; the stock rild serves 1.1. LineageOS' wrapper
+# serves IRadio 1.4 on every slot rild serves (slot1 here) and forwards to rild.
 PRODUCT_PACKAGES += \
+    android.hardware.radio@1.4-service.legacy \
     librmnetctl \
     libxml2 \
     libril-wrapper
@@ -285,8 +288,11 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/seccomp/mediacodec-seccomp.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy
 
 # Sensors
+# Binderized: Android 14 always builds split sepolicy, so the HAL can no longer be loaded
+# passthrough into system_server (kiwi's SensorService saw "No Sensors", no auto-rotation).
 PRODUCT_PACKAGES += \
     android.hardware.sensors@1.0-impl \
+    android.hardware.sensors@1.0-service \
     libsensorndkbridge \
     sensors.msm8916
 
