@@ -14,10 +14,14 @@ LOCAL_SRC_FILES := \
     QCameraPostProc.cpp \
     QCamera2HWICallbacks.cpp \
     QCameraParameters.cpp \
+    CameraParametersVendor.cpp \
     QCameraThermalAdapter.cpp \
     wrapper/QualcommCamera.cpp
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
+# hwjdn: QCamera2 predates Android 14, where String8::string()/isEmpty() became
+# private; libutils keeps them behind this official compatibility switch.
+LOCAL_CFLAGS += -DENABLE_STRING8_OBSOLETE_METHODS
 LOCAL_CFLAGS += -DHAS_MULTIMEDIA_HINTS
 
 #use media extension
@@ -53,8 +57,11 @@ LOCAL_CFLAGS += -DTARGET_TS_MAKEUP
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/tsMakeuplib/include
 endif
 
+# hwjdn: <camera/CameraParameters.h> used to come from libcamera_client's exported
+# headers; the class is now compiled in (CameraParametersVendor.cpp).
+LOCAL_C_INCLUDES += frameworks/av/camera/include
 LOCAL_HEADER_LIBRARIES := generated_kernel_headers
-LOCAL_SHARED_LIBRARIES := libcamera_client liblog libhardware libutils libcutils libdl
+LOCAL_SHARED_LIBRARIES := liblog libhardware libutils libcutils libdl
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface libmmjpeg_interface libqdMetaData
 ifeq ($(TARGET_TS_MAKEUP),true)
 LOCAL_SHARED_LIBRARIES += libts_face_beautify_hal libts_detected_face_hal
@@ -67,4 +74,7 @@ LOCAL_32_BIT_ONLY := true
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 
+# hwjdn: Android 14 builds every vendor module VNDK-style, without the old global
+# include dirs (libhardware, media plugin/OMX, EGL); request them explicitly.
+LOCAL_HEADER_LIBRARIES += libhardware_headers media_plugin_headers gl_headers
 include $(BUILD_SHARED_LIBRARY)
