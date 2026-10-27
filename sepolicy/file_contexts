@@ -42,6 +42,16 @@
 /sys/devices/soc\.0/78b6000\.i2c/i2c-0/0-0018/input/input[0-9]+                u:object_r:sysfs_sensors:s0
 /sys/devices/soc\.0/78b6000\.i2c/i2c-0/0-001e/input/input[0-9]+                u:object_r:sysfs_sensors:s0
 /sys/devices/virtual/input/input[0-9]+                                         u:object_r:sysfs_sensors:s0
+# Each sensor's control directory (enable, poll_delay, ...), which the kernel registers under
+# its input device: "bma2x2-accel" (drivers/input/misc/bma2x2.c) and "ap3426-light" /
+# "ap3426-proximity" (ap3426.c), the names sepolicy-legacy's msm8909 labels use for the same
+# drivers. kiwi's harvest needed the same entries for its lis3dh and apds9930.
+/sys/devices/soc\.0/78b6000\.i2c/i2c-0/0-0018/input/input[0-9]+/bma2x2-accel(/.*)?      u:object_r:sysfs_sensors:s0
+/sys/devices/soc\.0/78b6000\.i2c/i2c-0/0-001e/input/input[0-9]+/ap3426-light(/.*)?      u:object_r:sysfs_sensors:s0
+/sys/devices/soc\.0/78b6000\.i2c/i2c-0/0-001e/input/input[0-9]+/ap3426-proximity(/.*)?  u:object_r:sysfs_sensors:s0
+# Huawei's sensors blob reads the hall sensor's camera status, as kiwi's does; the tablet has
+# the same 8789.huawei_hall_sensor device (init.target-from-init.rc sets its owner).
+/sys/devices/8789\.huawei_hall_sensor/get_camera_status                          u:object_r:sysfs_sensors:s0
 /data/misc/akmd_set\.txt                                                         u:object_r:sensors_data_file:s0
 
 # Bypass charging node. sepolicy-legacy's .../power_supply/battery(/.*)? entry relabels it
