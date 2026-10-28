@@ -15,7 +15,10 @@
 VARIANT=${VARIANT:-userdebug}
 RAW=https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-20
 
-repo init -u https://github.com/LineageOS/android.git -b lineage-20.0 --git-lfs -g default,-pixel-extra \
+# --depth=1: Crave's admins require shallow checkouts on their nodes (full history wastes
+# their storage and bandwidth). The build needs none: patches go in with git am
+# without --3way, and nothing here reads git history.
+repo init -u https://github.com/LineageOS/android.git -b lineage-20.0 --git-lfs --depth=1 -g default,-pixel-extra \
   || { echo "!! repo init failed"; exit 1; }
 
 rm -rf .repo/local_manifests && mkdir -p .repo/local_manifests || exit 1
