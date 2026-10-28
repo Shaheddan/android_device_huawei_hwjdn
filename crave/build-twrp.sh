@@ -18,7 +18,10 @@
 RAW=https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/twrp-variants
 OUT=out/target/product/hwjdn
 
-repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 --git-lfs \
+# --depth=1: Crave's admins require shallow checkouts on their nodes (full history wastes
+# their storage and bandwidth). The build needs none: this script applies no
+# patches and reads no git history.
+repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-11 --git-lfs --depth=1 \
   || { echo "!! repo init failed"; exit 1; }
 
 rm -rf .repo/local_manifests && mkdir -p .repo/local_manifests || exit 1
