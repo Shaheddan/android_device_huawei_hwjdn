@@ -18,7 +18,10 @@ RAW=https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/line
 
 # accupara/los21 has the same remotes and android-14.0.0_r67 tag as LineageOS/android
 # lineage-21.0 (checked for kiwi), so the manifests and patches fit as-is.
-repo init -u https://github.com/accupara/los21.git -b lineage-21.0 --git-lfs -g default,-pixel-extra \
+# --depth=1: Crave's admins require shallow checkouts on their nodes (full history wastes
+# their storage and bandwidth). The build needs none: patches go in with git am
+# without --3way, and nothing here reads git history.
+repo init -u https://github.com/accupara/los21.git -b lineage-21.0 --git-lfs --depth=1 -g default,-pixel-extra \
   || { echo "!! repo init failed"; exit 1; }
 
 rm -rf .repo/local_manifests && mkdir -p .repo/local_manifests || exit 1
