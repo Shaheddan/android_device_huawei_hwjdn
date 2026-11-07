@@ -137,7 +137,7 @@ public class BypassChargingActivity extends CollapsingToolbarBaseActivity {
                 mStatus.setStatus(state, pct, false, getString(chip), title,
                         getString(R.string.bypass_status_charging_to, threshold));
             } else if (now || auto) {
-                // A mode is on but the service applies it with the next battery update.
+                // A mode is on; the charger has not reported the change yet.
                 mStatus.setStatus(state, pct, false,
                         getString(R.string.bypass_chip_starting),
                         getString(R.string.bypass_status_pending_title),
@@ -173,6 +173,10 @@ public class BypassChargingActivity extends CollapsingToolbarBaseActivity {
         @Override
         public void onResume() {
             super.onResume();
+            // Keep BypassService running while the page is open: it follows the switches
+            // through its preference listener, so a change applies at once.
+            requireContext().startService(
+                    new Intent(requireContext(), BypassService.class));
             getPreferenceManager().getSharedPreferences()
                     .registerOnSharedPreferenceChangeListener(this);
             final Intent sticky = requireContext().registerReceiver(mBatteryReceiver,
@@ -189,7 +193,7 @@ public class BypassChargingActivity extends CollapsingToolbarBaseActivity {
             getPreferenceManager().getSharedPreferences()
                     .unregisterOnSharedPreferenceChangeListener(this);
             requireContext().unregisterReceiver(mBatteryReceiver);
-            // Re-evaluate immediately with the new settings
+            // Make sure the service runs after the page is left; every start re-applies.
             requireContext().startService(
                     new Intent(requireContext(), BypassService.class));
         }

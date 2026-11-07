@@ -26,7 +26,7 @@
     <string name="bypass_status_charging_to">Bypass starts at %1$d%%</string>
     <string name="bypass_status_charging_off">Bypass charging is off</string>
     <string name="bypass_status_pending_title">Starting bypass…</string>
-    <string name="bypass_status_pending_summary">Takes effect with the next battery update</string>
+    <string name="bypass_status_pending_summary">Waiting for the charger to report the change</string>
 
     <!-- Status chip on the card (Android 14 layout) -->
     <string name="bypass_chip_battery">On battery</string>
