@@ -3,8 +3,8 @@
 Unofficial LineageOS 21 (Android 14) for the Huawei MediaPad T2 8.0 Pro,
 running on the tablet's 3.10 kernel with eBPF, PSI and cgroup v2 backported.
 It is this tree's LineageOS 20 port plus everything the Honor 5X (kiwi)
-LineageOS 21 port needed to run Android 14 on the same SoC, the same kernel
-lineage and the same Adreno 405 blobs.
+LineageOS 21 port needed to run Android 14 on the same SoC and the same
+kernel lineage, including kiwi's Adreno 405 GL driver.
 
 ## Device specifications
 
@@ -38,15 +38,12 @@ zip on that check, please report it.
 
 ## Status
 
-**In bring-up.** The first LineageOS 21 build has not been flashed yet;
-what works will be listed here once it is tested on the tablet.
+**Works on the JDN-L01**, with no known bugs, and runs **fully SELinux
+enforcing** (no permissive domains). Built and tested on 2026-11-07.
 
-- The sensors HAL runs permissive in this first build (see *Android 14
-  changes*); the rest of the device is SELinux enforcing.
-
-For a daily driver, use LineageOS 20: branch `lineage-20`, release
-[`hwjdn-lineage-20.0-20261022-0245`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-lineage-20.0-20261022-0245),
-flashed with TWRP
+LineageOS 20 stays available: branch `lineage-20`, release
+[`hwjdn-lineage-20.0-20261022-0245`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-lineage-20.0-20261022-0245).
+Flash either with TWRP
 [`hwjdn-twrp-20261018-0447`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-twrp-20261018-0447).
 
 ## Android 14 changes
@@ -68,6 +65,13 @@ compiler diagnostics on stderr.
 - First boot: no `ro.vndk.version` (linkerconfig aborted without a VNDK
   APEX), `ro.hardware.egl=adreno` (libEGL no longer scans), uncompressed
   APEXes (the 3.10 dm-verity rejects the decompressed-APEX table).
+- Graphics: crackling's Adreno V@145 GL driver, as on kiwi, instead of the
+  stock V@140. Android 14 has only Skia RenderEngine (the GLES engine that
+  `debug.renderengine.backend=threaded` selected on 19.1 and 20 is gone), and
+  Skia needs `GL_OES_EGL_image_external_essl3` to read app and boot-animation
+  buffers. V@140 does not advertise it, so SurfaceFlinger aborted ("Unable to
+  generate SkImage") and the framework restarted in a loop after the boot
+  animation.
 - SurfaceFlinger: shader-cache priming off (Adreno 405 cannot make an FP16
   EGLImage); gralloc and libmemalloc labelled same-process HALs.
 - Bluetooth: zygote no longer preloads the GL driver, which clobbers x18, the
@@ -87,13 +91,17 @@ compiler diagnostics on stderr.
 - Build rules: Android 14 enforces vendor link types and header libraries,
   so the camera HAL compiles `CameraParameters` itself and the vendor modules
   request their headers; JdnDoze moves to `Android.bp`.
-- SELinux: kiwi's enforcing harvest (bypass node label, bootanim, GNSS,
-  mm-pp-daemon, vendor_init) and its dontaudits. The sensors HAL runs
-  permissive for the first build only: which sysfs files the tablet's
-  sensors blob opens has never been recorded, and the denials from that
-  boot will give the exact rules.
+- SELinux, fully enforcing: kiwi's enforcing harvest (bypass node label,
+  bootanim, GNSS, mm-pp-daemon, vendor_init) and its dontaudits, plus this
+  tablet's own: the binderized sensors HAL's oeminfo access,
+  `init.svc.media`/`servicemanager`/`recovery` readable by vendor_init so init
+  keeps the rc triggers on them, and a dontaudit for the linker's shim-path
+  probe of `thermal-engine`, which every process start used to log.
 - JdnParts: kiwi's Android 14 Material You redesign, with an animated
-  battery that shows where the current flows.
+  battery that shows where the current flows. The bypass service applies a
+  change at once and stays up across unplugs: Android 8 and later no longer
+  deliver the power-connected broadcast to manifest receivers, so it used to
+  engage only when the bypass page was left.
 
 ### Platform patches
 
@@ -187,7 +195,8 @@ Everything from the `jdn-pad-power` 19.1 work is in this branch:
   current goes into the battery or around it, a status chip, and the
   auto-bypass level as its own row. Backed by the BQ24296 charger IC's
   charge-disable path (`factory_diag` sysfs node). Normal charging always
-  returns when the charger is unplugged.
+  returns when the charger is unplugged, and a switched mode takes effect
+  at once.
 
 ## Building
 
@@ -209,33 +218,25 @@ HALs and `dtbtool`.
 Build `userdebug`; the sepolicy tree only relaxes neverallows for
 eng/userdebug.
 
-### On crave.io
+`--git-lfs` matters: the WebView APKs are Git LFS files. If
+`external/chromium-webview/prebuilt/arm64/webview.apk` is only a small text
+pointer, run `git lfs pull` in `prebuilt/arm64` and `prebuilt/arm`; the build
+otherwise fails near the end with "not a valid zip file".
 
-Crave has no LineageOS 21 project. From a folder set up for Crave's LOS 20
-project, the script re-initialises that workspace to Crave's LineageOS 21
-manifest (`accupara/los21`, the same commit as LineageOS's lineage-21.0),
-as kiwi's LineageOS 21 builds do:
+### Memory
 
-    repo init -u https://github.com/accupara/los20.git -b lineage-20.0 --git-lfs
-    crave run --no-patch -- "curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-21/crave/build-hwjdn.sh | GH_TOKEN=<token> bash"
+Soong's analysis of the whole lineage-21.0 tree needed about 33 GB (RAM plus
+swap). This build was made on a 16 GB machine with local, unpublished low-RAM
+changes to Soong, Blueprint and Kati that skip test, benchmark and fuzz modules
+and hide test-only folders; Soong then peaked at 13.3 GB and Kati at 7 GB.
+Machines with 32 GB or more should not need them.
 
-With `GH_TOKEN` set (a fine-grained token with Contents read/write on this
-repository), the script uploads the zip to a GitHub pre-release before Crave
-clears `out/`. It also works around Crave's Debian 13 build image:
+### crave.io
 
-- **ncurses 5.** RenderScript's old `clang-3289846`, `bcc_strip_attr`,
-  `llvm-rs-cc` and the `prebuilts/sdk` tools need `libncurses.so.5` and
-  `libtinfo.so.5`, which Debian 13 no longer ships. Their imports are
-  unversioned, so the script links the `.so.5` names to the system's `.so.6`
-  in the `lib64` of each host-tool tree, then checks every tool with `ldd`.
-  It does this after `m nothing`, because the start of a build can run clean
-  steps that delete `out/host` and `out/soong/host`.
-- **gcc wrappers.** Crave renames compilers to `mbt-bin-<name>`; LineageOS's
-  gcc 4.9 wrapper then looks for `real-mbt-bin-<name>`, so the script links
-  those names to the real binaries.
-- **Stale commit-graph indexes.** The workspace is shared with the 19.1 and
-  20 builds, and a commit-graph that names lost commits makes git refuse to
-  fetch, so the resync fails; the script deletes them before the resync.
+crave.io shut down in November 2026. `crave/build-hwjdn.sh` is kept for
+reference: it re-initialised Crave's LineageOS 20 workspace to LineageOS 21
+and worked around Crave's Debian 13 build image (ncurses 5 links for the old
+host tools, gcc wrapper names, stale commit-graph indexes).
 
 ## Branches
 
@@ -246,7 +247,7 @@ clears `out/`. It also works around Crave's Debian 13 build image:
 | `lineage-19.1` | LineageOS 19.1 release |
 | `jdn-pad-power` | LineageOS 19.1 with the Huawei JDN source work (works on the L01) |
 | `lineage-20` | LineageOS 20 (works on the L01) |
-| `lineage-21` | LineageOS 21 (this branch, in bring-up) |
+| `lineage-21` | LineageOS 21 (this branch, works on the L01) |
 
 ## Kernel / vendor
 
@@ -255,7 +256,8 @@ clears `out/`. It also works around Crave's Debian 13 build image:
 - Vendor: [proprietary_vendor_huawei_hwjdn](https://github.com/Shaheddan/proprietary_vendor_huawei_hwjdn)
   (branch `lineage-21`) — extracted from Huawei's stock firmware (EMUI 4,
   Android 6.0.1); `rmt_storage` is kiwi's dynamically linked build, because
-  the stock static one cannot read the properties of newer Android versions
+  the stock static one cannot read the properties of newer Android versions;
+  on `lineage-21` the Adreno GL driver is crackling's V@145, as on kiwi
 
 ## Credits
 
