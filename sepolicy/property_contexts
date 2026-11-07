@@ -14,5 +14,12 @@ qcom.bt.                    u:object_r:vendor_bluetooth_prop:s0
 # prefix and gets init_service_status_private_prop, which no vendor domain may
 # read. init_service_status_prop is system_restricted and therefore readable.
 init.svc.bootanim       u:object_r:init_service_status_prop:s0 exact string
+# vendor_init must be able to read a property for init to keep a vendor rc trigger on it:
+# init.target.rc restarts qcamerasvr when the media server or servicemanager restarts, and
+# init.recovery.qcom.rc / init.qcom.power.rc trigger enable-low-power in recovery. As
+# private init.svc.* they were dropped (vendor_init denials, harvest 2026-11-07).
+init.svc.media          u:object_r:init_service_status_prop:s0 exact string
+init.svc.servicemanager u:object_r:init_service_status_prop:s0 exact string
+init.svc.recovery       u:object_r:init_service_status_prop:s0 exact string
 ro.use_data_netmgrd             u:object_r:vendor_hwjdn_prop:s0
 persist.env.fastdorm.enabled    u:object_r:vendor_hwjdn_prop:s0

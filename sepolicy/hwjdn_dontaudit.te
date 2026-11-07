@@ -13,6 +13,11 @@ dontaudit netmgrd fs_bpf:dir search;
 # to overflow the kernel's 5-per-second audit limit at boot and lose real denials with them.
 # Only `read` is silenced: a real failed open of a vendor file still logs { open }.
 dontaudit coredomain vendor_file:file read;
+# The same probe on /system/vendor/bin/thermal-engine, the one shim path that is not a
+# library: its thermal-engine_exec label is readable by almost no domain, so every process
+# start in ~60 domains logged { read } (harvest 2026-11-07). The linker then uses the
+# unresolved path, which is what thermal-engine itself matches. Read only, as above.
+dontaudit domain thermal-engine_exec:file read;
 # rild's legacy data scripts stat /system/bin/ip (its exec is dontaudited in rild.te) and
 # netmgrd's open /system/bin/iptables; both fall back. Other harmless probes:
 dontaudit rild system_file:file getattr;
