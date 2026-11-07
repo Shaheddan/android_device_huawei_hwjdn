@@ -201,7 +201,8 @@ persist.sys.usb.config.extra=none
 wifi.interface=wlan0
 
 # 19.1 (ref: Moto system_prop.mk)
-debug.renderengine.backend=threaded
+# No debug.renderengine.backend: Android 14 has only Skia RenderEngine; "threaded" (the GLES
+# engine used on 19.1/20) is ignored. Skia needs the Adreno V@145 blobs (proprietary-files.txt).
 persist.sys.binary_xml=false
 # No ro.vndk.version: hwjdn has no VNDK APEX. Android 14's linkerconfig treats a defined
 # ro.vndk.version as VNDK-enabled and aborts when /apex/com.android.vndk.v<version> is
