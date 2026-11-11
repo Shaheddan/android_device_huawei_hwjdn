@@ -33,6 +33,12 @@ TARGET_BOOTLOADER_BOARD_NAME := MSM8916
 TARGET_NO_BOOTLOADER := true
 TARGET_OTA_ASSERT_DEVICE := hwjdn
 
+# OTA
+# WHY stated explicitly: hwjdn has no A/B slots (recovery is its own partition).
+# kiwi's LineageOS 22.2 tree sets the same; where false is already the default
+# it changes nothing.
+AB_OTA_UPDATER := false
+
 # Kernel
 #
 # THE TWO OFFSETS BELOW ARE NOT THE msm8939 CONVENTION AND NOT kiwi's.
