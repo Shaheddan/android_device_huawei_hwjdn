@@ -303,7 +303,8 @@ PRODUCT_COPY_FILES += \
 PRODUCT_SOONG_NAMESPACES += \
     device/huawei/hwjdn/init \
     device/huawei/hwjdn/libshims \
-    device/huawei/hwjdn/light
+    device/huawei/hwjdn/light \
+    hardware/qcom-caf/bt/libbt-vendor
 
 # Thermal
 PRODUCT_COPY_FILES += \
