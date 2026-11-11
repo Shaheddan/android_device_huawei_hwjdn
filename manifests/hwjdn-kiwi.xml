@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  What hwjdn takes from kiwi, for a LineageOS 22.2 tree that does not build
+  kiwi. Leave this file out where kiwi's own kiwi.xml is present: it declares
+  the same three projects.
+
+  - device/huawei/kiwi: hardware/qcom-caf/wlan links libwcnss_qmi by module
+    name and kiwi's tree provides it; hwjdn does not carry its own copy, as
+    the two would collide. Its camera-legacy/ also provides the HIDL camera
+    device 1.0 and provider 2.4 that LineageOS 22 dropped. kiwi itself is
+    not built.
+  - vendor/huawei/kiwi: kiwi's light HAL, which Soong parses even though kiwi
+    is not built, imports that namespace.
+  - device/qcom/sepolicy-legacy: no lineage-22.2 branch exists upstream; this
+    is the fork kiwi's Android 15 port carries.
+-->
+<manifest>
+
+  <remote name="shaheddan"
+          fetch="https://github.com/Shaheddan" />
+
+  <project path="device/huawei/kiwi"
+           name="android_device_huawei_kiwi"
+           remote="shaheddan" revision="lineage-22.2" />
+
+  <project path="vendor/huawei/kiwi"
+           name="proprietary_vendor_huawei_kiwi"
+           remote="shaheddan" revision="lineage-22.2" />
+
+  <project path="device/qcom/sepolicy-legacy"
+           name="android_device_qcom_sepolicy-legacy"
+           remote="shaheddan" revision="lineage-22.2" />
+
+</manifest>
