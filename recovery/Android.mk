@@ -2,11 +2,13 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+# Android 15 moved edify and the non-A/B updater from bootable/recovery to
+# bootable/deprecated-ota; otautil stayed. The headers hwjdn uses are unchanged.
 LOCAL_C_INCLUDES := \
     bootable/recovery \
-    bootable/recovery/edify/include \
+    bootable/deprecated-ota/edify/include \
     bootable/recovery/otautil/include \
-    bootable/recovery/updater/include
+    bootable/deprecated-ota/updater/include
 
 LOCAL_SRC_FILES := recovery_updater.cpp
 LOCAL_MODULE := librecovery_updater_hwjdn
