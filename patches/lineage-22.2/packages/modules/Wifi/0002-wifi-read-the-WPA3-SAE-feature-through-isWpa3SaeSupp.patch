@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: shahed <jamshidalinezhadian@gmail.com>
+Date: Mon, 2 Nov 2026 15:00:00 +0330
+Subject: [PATCH] wifi: read the WPA3 SAE feature through isWpa3SaeSupported()
+
+On LineageOS 22.2 (Android 15) getSupportedFeatures() returns a BitSet
+instead of a long bitmask, and WifiManager.WIFI_FEATURE_WPA3_SAE is a
+bit index. The transition-disable check still masked the old long, so
+wifi-service failed to compile:
+
+  ClientModeImpl.java: error: bad operand types for binary operator '&'
+    first type:  BitSet
+    second type: int
+
+Use the class's existing isWpa3SaeSupported(), which reads the bit
+from the BitSet. The behaviour is unchanged.
+
+Change-Id: I4b8e1d6a2c9f3e7a5d0b8c2e6f1a9d3b7c5e0f48
+---
+ service/java/com/android/server/wifi/ClientModeImpl.java | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/service/java/com/android/server/wifi/ClientModeImpl.java b/service/java/com/android/server/wifi/ClientModeImpl.java
+index 2d35e0b..0fffe57 100644
+--- a/service/java/com/android/server/wifi/ClientModeImpl.java
++++ b/service/java/com/android/server/wifi/ClientModeImpl.java
+@@ -6025,7 +6025,9 @@ public class ClientModeImpl extends StateMachine implements ClientMode {
+                         // after which the network is never handed to wpa_supplicant again
+                         // ("No available security params").
+                         if ((indication & WifiMonitor.TDI_USE_WPA3_PERSONAL) != 0
+-                                && (getSupportedFeatures() & WifiManager.WIFI_FEATURE_WPA3_SAE) == 0) {
++                                // Android 15 returns the feature set as a BitSet; the class's
++                                // own helper reads the WPA3 SAE bit from it.
++                                && !isWpa3SaeSupported()) {
+                             log("Ignoring WPA3 Personal transition disable: SAE not supported");
+                             indication &= ~WifiMonitor.TDI_USE_WPA3_PERSONAL;
+                         }
+-- 
+2.43.0
+

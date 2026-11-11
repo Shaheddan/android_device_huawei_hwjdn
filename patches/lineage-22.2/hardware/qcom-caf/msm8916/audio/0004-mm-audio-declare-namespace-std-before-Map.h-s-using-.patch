@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: shahed <jamshidalinezhadian@gmail.com>
+Date: Thu, 5 Nov 2026 10:30:00 +0330
+Subject: [PATCH] mm-audio: declare namespace std before Map.h's
+ using-directive
+
+The four OMX encoders' Map.h only includes <stdio.h> before
+"using namespace std;". On LineageOS 22.2 (Android 15) libc++'s C
+wrapper headers no longer declare namespace std, and clang rejects the
+directive:
+
+  Map.h:32:17: error: using directive refers to implicitly-defined
+  namespace 'std' [-Werror]
+
+Include <cstdio>, which declares it. The .cpp files include Map.h
+before their own "using namespace std;", so that is fixed too.
+
+Change-Id: I8d3b6f1a9c2e5d7b4a0f6e3c9d1b8a2f5e7c4d06
+---
+ mm-audio/aenc-aac/qdsp6/inc/Map.h     | 3 +++
+ mm-audio/aenc-amrnb/qdsp6/inc/Map.h   | 3 +++
+ mm-audio/aenc-evrc/qdsp6/inc/Map.h    | 3 +++
+ mm-audio/aenc-qcelp13/qdsp6/inc/Map.h | 3 +++
+ 4 files changed, 12 insertions(+)
+
+diff --git a/mm-audio/aenc-aac/qdsp6/inc/Map.h b/mm-audio/aenc-aac/qdsp6/inc/Map.h
+index aac96fd..9559015 100644
+--- a/mm-audio/aenc-aac/qdsp6/inc/Map.h
++++ b/mm-audio/aenc-aac/qdsp6/inc/Map.h
+@@ -29,6 +29,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define _MAP_H_
+ 
+ #include <stdio.h>
++// Declares namespace std before the using-directive. Android 15's libc++ C wrappers
++// (stdio.h) no longer do, and clang rejects a using-directive for an undeclared std.
++#include <cstdio>
+ using namespace std;
+ 
+ template <typename T,typename T2>
+diff --git a/mm-audio/aenc-amrnb/qdsp6/inc/Map.h b/mm-audio/aenc-amrnb/qdsp6/inc/Map.h
+index aac96fd..9559015 100644
+--- a/mm-audio/aenc-amrnb/qdsp6/inc/Map.h
++++ b/mm-audio/aenc-amrnb/qdsp6/inc/Map.h
+@@ -29,6 +29,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define _MAP_H_
+ 
+ #include <stdio.h>
++// Declares namespace std before the using-directive. Android 15's libc++ C wrappers
++// (stdio.h) no longer do, and clang rejects a using-directive for an undeclared std.
++#include <cstdio>
+ using namespace std;
+ 
+ template <typename T,typename T2>
+diff --git a/mm-audio/aenc-evrc/qdsp6/inc/Map.h b/mm-audio/aenc-evrc/qdsp6/inc/Map.h
+index aac96fd..9559015 100644
+--- a/mm-audio/aenc-evrc/qdsp6/inc/Map.h
++++ b/mm-audio/aenc-evrc/qdsp6/inc/Map.h
+@@ -29,6 +29,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define _MAP_H_
+ 
+ #include <stdio.h>
++// Declares namespace std before the using-directive. Android 15's libc++ C wrappers
++// (stdio.h) no longer do, and clang rejects a using-directive for an undeclared std.
++#include <cstdio>
+ using namespace std;
+ 
+ template <typename T,typename T2>
+diff --git a/mm-audio/aenc-qcelp13/qdsp6/inc/Map.h b/mm-audio/aenc-qcelp13/qdsp6/inc/Map.h
+index aac96fd..9559015 100644
+--- a/mm-audio/aenc-qcelp13/qdsp6/inc/Map.h
++++ b/mm-audio/aenc-qcelp13/qdsp6/inc/Map.h
+@@ -29,6 +29,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define _MAP_H_
+ 
+ #include <stdio.h>
++// Declares namespace std before the using-directive. Android 15's libc++ C wrappers
++// (stdio.h) no longer do, and clang rejects a using-directive for an undeclared std.
++#include <cstdio>
+ using namespace std;
+ 
+ template <typename T,typename T2>
+-- 
+2.43.0
+

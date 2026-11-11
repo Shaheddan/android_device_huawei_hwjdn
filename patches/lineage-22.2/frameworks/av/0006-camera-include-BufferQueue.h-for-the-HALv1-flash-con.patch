@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: shahed <jamshidalinezhadian@gmail.com>
+Date: Tue, 3 Nov 2026 23:55:00 +0330
+Subject: [PATCH] camera: include BufferQueue.h for the HALv1 flash control
+
+CameraHardwareInterfaceFlashControl::initializePreviewWindow() creates
+a BufferQueue for the torch preview surface. On LineageOS 22.2
+(Android 15) no header CameraFlashlight.cpp includes brings in
+<gui/BufferQueue.h> any more, so libcameraservice failed to compile:
+
+  CameraFlashlight.cpp:554:5: error: use of undeclared identifier
+  'BufferQueue'
+
+Include it directly.
+
+Change-Id: I2f7c9a4e1b6d3f8a0c5e2b9d7a4f1c6e8b3d0a57
+---
+ services/camera/libcameraservice/CameraFlashlight.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/services/camera/libcameraservice/CameraFlashlight.cpp b/services/camera/libcameraservice/CameraFlashlight.cpp
+index 4ece1f0..868a08a 100644
+--- a/services/camera/libcameraservice/CameraFlashlight.cpp
++++ b/services/camera/libcameraservice/CameraFlashlight.cpp
+@@ -21,6 +21,9 @@
+ #include <utils/Log.h>
+ #include <utils/Trace.h>
+ #include <cutils/properties.h>
++// The HALv1 flash control creates its own BufferQueue for the preview window. On
++// Android 15 none of the headers below pull BufferQueue.h in any more.
++#include <gui/BufferQueue.h>
+ 
+ #include "CameraFlashlight.h"
+ #include "camera/CameraMetadata.h"
+-- 
+2.43.0
+
