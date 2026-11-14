@@ -134,7 +134,6 @@ void vendor_load_properties()
 {
     string platform;
     string model;
-    string hwsim;
     match_t *match;
 
     ifstream app_info("/proc/app_info");
@@ -195,17 +194,16 @@ void vendor_load_properties()
         property_set("telephony.lteOnCdmaDevice", "1");
     }
 
-    // Fix single sim variant based on property set by the bootloader
-    hwsim = GetProperty("ro.boot.hwsim", "");
-
-    if (hwsim == "single") {
-        property_set("ro.telephony.default_network", match->default_network);
-    } else {
-        property_set("persist.radio.multisim.config", "dsds");
-        property_set("ro.telephony.ril.config", "simactivation,sim2gsmonly");
-        property_set("ro.telephony.default_network", match->default_network + "," +
-                match->default_network);
-    }
+    /* Every jdn variant is single SIM: stock has ro.multi.rild=false and no
+       multisim props, and the jdn bootloader never passes androidboot.hwsim,
+       which kiwi's init used to pick its dual SIM setup. Taking that branch
+       here started a second rild and gave telephony a second phone with no
+       radio behind it; on 22.2 PhoneSwitcher then resends setDataAllowed to
+       that phone without any delay, ~1300 times a second.
+       simactivation stays: the legacy Qualcomm RIL needs UiccProfile to
+       activate the SIM apps, or incoming calls and SMS never arrive. */
+    property_set("ro.telephony.ril.config", "simactivation");
+    property_set("ro.telephony.default_network", match->default_network);
 
     // Init a dummy BT MAC address, will be overwritten later
     property_set("ro.boot.btmacaddr", "00:00:00:00:00:00");
