@@ -208,8 +208,15 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
   }
 
   if (FALSE == p_core_comp->open) {
-    /* load the library */
-    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW);
+    /* load the library.
+     * hwjdn: RTLD_NODELETE keeps the component and everything it pulls in
+     * (libmmqjpeg_codec, libmmjpeg, libfastcvopt, ...) mapped after
+     * OMX_FreeHandle's dlclose. The JPEG session is created on the HAL's
+     * CAM_defrdWrk thread and freed on another; once unloaded, a thread-local
+     * destructor one of those libraries had registered on CAM_defrdWrk pointed
+     * at unmapped memory, and the thread's exit on camera close crashed the
+     * provider in pthread_key_clean_all() (cameraserver then aborted). */
+    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW | RTLD_NODELETE);
     if (NULL == p_core_comp->lib_handle) {
       ALOGE("%s:%d] Cannot load the library", __func__, __LINE__);
       rc = OMX_ErrorInvalidComponent;
