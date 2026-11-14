@@ -1,10 +1,11 @@
-# Device tree for Huawei MediaPad T2 8.0 Pro (hwjdn) — LineageOS 21
+# Device tree for Huawei MediaPad T2 8.0 Pro (hwjdn) — LineageOS 22.2
 
-Unofficial LineageOS 21 (Android 14) for the Huawei MediaPad T2 8.0 Pro,
-running on the tablet's 3.10 kernel with eBPF, PSI and cgroup v2 backported.
-It is this tree's LineageOS 20 port plus everything the Honor 5X (kiwi)
-LineageOS 21 port needed to run Android 14 on the same SoC and the same
-kernel lineage, including kiwi's Adreno 405 GL driver.
+Unofficial LineageOS 22.2 (Android 15) for the Huawei MediaPad T2 8.0 Pro
+(Honor Pad 2), running on the tablet's 3.10 kernel with eBPF, PSI and
+cgroup v2 backported. It is this tree's LineageOS 21 port plus everything the
+Honor 5X (kiwi) LineageOS 22.2 port needed to run Android 15 on the same SoC
+and the same kernel lineage. The ROM is a userdebug build and runs with
+SELinux enforcing.
 
 ## Device specifications
 
@@ -28,192 +29,131 @@ kernel lineage, including kiwi's Adreno 405 GL driver.
 | JDN-AL00 (China, LTE) | `0x1fc2` | Own DTB and `init` entry; not yet tested on an AL00 |
 
 The bootloader picks the DTB whose board ID matches, and the kernel builds
-one per model from Huawei's own JDN source: the W09 and AL00 trees include
-the L01's and override only what Huawei's differ in (model, board ID, modem
-ID, no SAR sensor, the variant name in the identity nodes, and the W09
-panel's front porches). `init` reads the variant name back from
-`/proc/app_info` and sets the model. The installer checks that TrustZone is
-`TZ.BF.3.0.C3-00025`, the version on the L01; if a W09 or AL00 refuses the
-zip on that check, please report it.
+one per model from Huawei's own JDN source. `init` reads the variant name
+back from `/proc/app_info` and sets the model. The installer checks that
+TrustZone is `TZ.BF.3.0.C3-00025`, the version on the L01; if a W09 or AL00
+refuses the zip on that check, please report it.
 
 ## Status
 
-**Works on the JDN-L01**, with no known bugs, and runs **fully SELinux
-enforcing** (no permissive domains). Built and tested on 2026-11-07.
+**Works on the JDN-L01** and runs **fully SELinux enforcing** (no permissive
+domains). Built and tested on 2026-11-14.
 
-LineageOS 20 stays available: branch `lineage-20`, release
-[`hwjdn-lineage-20.0-20261022-0245`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-lineage-20.0-20261022-0245).
-Flash either with TWRP
+**Tested on 22.2**
+
+- Calls (outgoing and incoming), incoming SMS, mobile data
+- Camera (front and back), video recording and flashlight
+- Video thumbnails and playback in Gallery
+- ADB and `adb root`
+- SELinux enforcing
+
+**Not retested on 22.2 yet** (all of them worked on 21): Wi-Fi, Bluetooth,
+Wi-Fi hotspot, GPS, auto-rotation and auto-brightness, audio, MTP, and the
+new Battery health page.
+
+LineageOS 21 stays available on branch `lineage-21`. Flash either with TWRP
 [`hwjdn-twrp-20261018-0447`](https://github.com/Shaheddan/android_device_huawei_hwjdn/releases/tag/hwjdn-twrp-20261018-0447).
-
-## Android 14 changes
-
-Everything here comes from kiwi's LineageOS 21 port, which runs fully SELinux
-enforcing on the same hardware.
-
-### Kernel
-
-The `lineage-21` kernel branch is the `lineage-20` kernel plus kiwi's
-Android 14 kernel fixes: `renameat2` (flags 0 and `RENAME_NOREPLACE`, used by
-Android 14's bionic `rename()` and the BPF loader), per-file SELinux labels
-on bpffs (ClatCoordinator aborted without them), the FunctionFS AIO cancel
-fix that ended the `adb root` hang on userdebug, and the gcc wrapper keeping
-compiler diagnostics on stderr.
-
-### Device tree
-
-- First boot: no `ro.vndk.version` (linkerconfig aborted without a VNDK
-  APEX), `ro.hardware.egl=adreno` (libEGL no longer scans), uncompressed
-  APEXes (the 3.10 dm-verity rejects the decompressed-APEX table).
-- Graphics: crackling's Adreno V@145 GL driver, as on kiwi, instead of the
-  stock V@140. Android 14 has only Skia RenderEngine (the GLES engine that
-  `debug.renderengine.backend=threaded` selected on 19.1 and 20 is gone), and
-  Skia needs `GL_OES_EGL_image_external_essl3` to read app and boot-animation
-  buffers. V@140 does not advertise it, so SurfaceFlinger aborted ("Unable to
-  generate SkImage") and the framework restarted in a loop after the boot
-  animation.
-- SurfaceFlinger: shader-cache priming off (Adreno 405 cannot make an FP16
-  EGLImage); gralloc and libmemalloc labelled same-process HALs.
-- Bluetooth: zygote no longer preloads the GL driver, which clobbers x18, the
-  shadow call stack register.
-- ART: full dexpreopt and the release ART runtime on every variant
-  (a build/make patch adds the opt-out).
-- HALs: the sensors HAL binderized (Android 14 cannot load it into
-  system_server); LineageOS' IRadio 1.4 wrapper in front of the stock rild's
-  IRadio 1.1; the AIDL Wi-Fi HAL, which starts pronto; AIDL ClearKey and
-  USB 1.3; no Trust HAL.
-- Wi-Fi: `pmf=0`, since the pronto driver rejects associations that offer
-  management frame protection.
-- Battery: `vm_bms` starts at late-fs, so the percentage is right on the
-  first boot after a flash.
-- VINTF: target FCM level 5 and a device framework matrix for the legacy
-  HIDL HALs.
-- Build rules: Android 14 enforces vendor link types and header libraries,
-  so the camera HAL compiles `CameraParameters` itself and the vendor modules
-  request their headers; JdnDoze moves to `Android.bp`.
-- SELinux, fully enforcing: kiwi's enforcing harvest (bypass node label,
-  bootanim, GNSS, mm-pp-daemon, vendor_init) and its dontaudits, plus this
-  tablet's own: the binderized sensors HAL's oeminfo access,
-  `init.svc.media`/`servicemanager`/`recovery` readable by vendor_init so init
-  keeps the rc triggers on them, and a dontaudit for the linker's shim-path
-  probe of `thermal-engine`, which every process start used to log.
-- JdnParts: kiwi's Android 14 Material You redesign, with an animated
-  battery that shows where the current flows. The bypass service applies a
-  change at once and stays up across unplugs: Android 8 and later no longer
-  deliver the power-connected broadcast to manifest receivers, so it used to
-  engage only when the bypass page was left.
-
-### Platform patches
-
-`patches/lineage-21/` (34 patches), applied by `patches/apply-patches.sh` —
-kiwi's Android 14 set without its core-parking power patch (this tree parks
-cores through `TARGET_POWERHAL_SET_INTERACTIVE_EXT`):
-
-- **frameworks/av, frameworks/base**: camera HALv1 on Android 14's camera
-  service
-- **frameworks/opt/telephony**: SIM activation for the legacy Qualcomm RIL
-- **packages/modules/Wifi**: ignore WPA3 transition-disable without SAE
-- **build/make**: opt-out of the debug ART runtime
-- **hardware/qcom-caf/msm8916 (audio, display, media), hardware/qcom-caf/common,
-  hardware/lineage/interfaces, hardware/interfaces**: Android 14 build fixes
-  for the msm8916 HALs and the legacy camera HAL
-- **vendor/qcom/opensource/power**: msm8916 support
-- **system/core, system/bpf, external/icu, vendor/lineage,
-  device/lineage/sepolicy**: adaptations for the 3.10 kernel and this
-  hardware
-
-## Android 13 changes
-
-### Kernel
-
-The `lineage-20` kernel branch is kiwi's `lineage-20-ebpf` kernel with this
-tablet's own commits on top: acroreiser's LeEco Le 2 (s2) 3.10 series
-(kernfs and cgroup v2, eBPF, PSI, memcg, percpu-refcount), the arm64 `bpf()`
-syscall, pidfd, FunctionFS AIO (adbd on Android 13), `IFA_FLAGS` netlink
-(Wi-Fi IP provisioning), a 4.9 kernel version reported to the BPF users only,
-and a fix so SELinux labels the cgroup2 inodes used in migration checks.
-
-### Device tree
-
-- Bluetooth: audio HAL entry in the manifest, profiles enabled through
-  properties, APCF extended features disabled (the WCNSS firmware answers
-  that command with a malformed reply), `libshim_btaddr_hwjdn` for
-  `set_sched_policy` (moved to libprocessgroup).
-- Camera: the legacy provider as a binderized service; cameraserver is built
-  32-bit to match the 32-bit HALv1 (platform patch).
-- `mm-pp-daemon` (display post-processing): an `IPowerManager` shim for its
-  5.1-era library, and the unused partial-update node hidden from it to stop
-  a busy loop.
-- Packages Android 13 no longer has removed; FDE `encryptable` dropped from
-  fstab; CellBroadcast privapp allowlists; full dexpreopt.
-- SELinux: eMMC queue label, vendor property triggers Android 13 discards
-  removed, Android 13 block types.
-- `ro.kernel.ebpf.supported=false` removed: the kernel has eBPF now.
-- JdnParts redesigned in Android 13's Material You style.
-
-### Platform patches
-
-`patches/lineage-20/` (one folder per repository), applied by
-`patches/apply-patches.sh` — kiwi's Android 13 set:
-
-- **frameworks/av, frameworks/base**: camera HALv1 (Camera1 API and the
-  legacy Camera2 shim), video recording from HALv1 cameras
-- **frameworks/opt/telephony**: SIM activation for the legacy Qualcomm RIL
-- **packages/modules/Wifi**: ignore WPA3 transition-disable without SAE
-- **frameworks/base (HWUI)**: fix for a 4-second UI freeze
-- **system/core, system/bpf, system/netd, packages/modules/Connectivity,
-  frameworks/native, hardware/…, vendor/…, device/lineage/sepolicy**:
-  adaptations for the 3.10 kernel and this hardware
-
-kiwi's core-parking patch for the power HAL is left out: this tree does the
-same through `TARGET_POWERHAL_SET_INTERACTIVE_EXT`
-(`power/power-interactive-ext.c`).
-
-## Ported from Huawei's JDN source
-
-Everything from the `jdn-pad-power` 19.1 work is in this branch:
-
-| Change | Why | Tested on 19.1 |
-| :----- | :-- | :----- |
-| Huawei's pad panel power sequence (kernel) | The image woke up shifted a few rows after sleep, on the W09 and the L01. | L01: 6/6 wakes, no shift |
-| All CPU cores online while the screen is on | `core_ctl` parked most cores and confined system_server, SurfaceFlinger, SystemUI and the launcher to two of them, so most apps lagged. The power HAL's screen on/off hook now sets `min_cpus` 4/4 with the screen on and the stock 0/1 with it off. | L01, at runtime |
-| CFQ as the default I/O scheduler (kernel) | The tablet ran noop: `sys.io.scheduler` does nothing on 19.1. CFQ is the only scheduler here that honours the I/O priorities Android gives background work. | L01, at runtime |
-| Touch controller interrupt instead of polling (kernel) | Polling every 15 ms added up to 15 ms of latency plus jitter. | L01, at runtime |
-| Wall-charger input limit 1000 → 2000 mA (kernel DT) | With Huawei's own 2 A charger the battery got about 0.4 A with the screen on. | Not yet tested |
-| HI843 O-Film camera OTP calibration (kernel) | The camera HAL found no white-balance calibration for the rear module; it lives in sensor OTP, which our kernel never read. | Not yet tested |
-| `IP_MULTICAST` and `PM_WAKELOCKS_GC` (kernel) | Huawei's defconfig enables both; multicast is needed for mDNS, Cast and DLNA discovery. | Not yet tested |
-| JDN-W09 and JDN-AL00 support (kernel + `init`) | See *Supported models*. | Needs W09/AL00 owners |
-| DSI command-injection sysfs removed (kernel) | A root-writable bring-up tool that shipped in the 19.1 release. | — |
-
 
 ## Extras
 
-- **Bypass charging** (JdnParts): Settings → Battery → Bypass charging.
-  "Bypass now" holds the current battery level; "Auto bypass" charges to a
-  configurable level and holds there. The page follows Android 14's Material
-  You style: a status card with an animated battery that shows whether the
-  current goes into the battery or around it, a status chip, and the
-  auto-bypass level as its own row. Backed by the BQ24296 charger IC's
-  charge-disable path (`factory_diag` sysfs node). Normal charging always
-  returns when the charger is unplugged, and a switched mode takes effect
-  at once.
+- **Battery health** (JdnParts): Settings → Battery → Battery health. A
+  Pixel-style page with a Normal / Reduced status, a Battery capacity card
+  and battery tips. The tablet's fuel gauge can't measure real capacity, so
+  the capacity is an estimate from the battery's age and the charge cycles
+  the kernel now counts (against the 4650 mAh design capacity the fuel gauge
+  reports), and the page says so. Tell it when the battery was new under
+  Battery capacity; cycle counting starts with the first 22.2 boot.
+- **Charging optimization** (inside Battery health): the bypass charging from
+  earlier versions, redesigned for Android 15. "Limit to N%" charges up to a
+  level and holds it there, "Hold current level" stops charging where it is.
+  It uses the BQ24296 charger's charge-disable path (`factory_diag` sysfs
+  node), and normal charging always comes back when you unplug.
+- **Smoothness**: all cores stay online while the screen is on and get parked
+  when it turns off (the power HAL's screen on/off hook,
+  `power/power-interactive-ext.c`), and the eMMC uses the CFQ I/O scheduler.
+
+## What changed from 21 (device tree)
+
+- Shims: the 22.2 linker no longer supports `TARGET_LD_SHIM_LIBS`, so the
+  shims are now patched into the blobs themselves as `DT_NEEDED` entries (in
+  the vendor repo): thermal-engine, both imx219 pad chromatix libraries,
+  libdmd, libbtaddr and libmm-abl.
+- Camera: LineageOS 22.2 dropped the legacy HIDL camera device and provider;
+  they now come from kiwi's tree (`camera-legacy/`), and the HALv1 framework
+  patches are ported to Android 15 QPR2. The JPEG encoder stays loaded once
+  used (`RTLD_NODELETE`): unloading it left a thread-local destructor behind,
+  and closing the camera after a photo crashed the camera provider and
+  cameraserver.
+- Telephony: every variant runs single SIM. The dual-SIM setup `init`
+  inherited from kiwi's tree started a second rild, and on 22.2 telephony
+  retried a command on that empty second slot in a tight loop
+  (`com.android.phone` near 100 % CPU).
+- Bluetooth: libbt-vendor gets its own Soong namespace.
+- OTA: non-A/B is set explicitly (`AB_OTA_UPDATER := false`).
+- Build: ril-wrapper takes `telephony/ril.h` from `ril_headers`, and the
+  recovery updater takes the edify and updater headers from
+  `bootable/deprecated-ota`.
+- SELinux, from an enforcing boot with everything in use: system_server may
+  read `ro.bootimage.*`; dontaudits for probes that fall back (the AIDL
+  graphics allocator lookup, ueventd's device tree fstab probe, the software
+  codecs looking for the display stack's vendor libraries, a camera HAL
+  property); the dontaudit for the old shim-path probe is gone; a dead
+  `hbd` setprop and the unused `signinfolistener` service are removed.
+- Battery: the kernel counts charge cycles in the vm-bms and reports them
+  through the charger's `cycle_count`, which Battery health uses.
+- Manifests: `hwjdn.xml` lists only the three hwjdn repositories;
+  `hwjdn-kiwi.xml` and `hwjdn-support.xml` add what the tablet takes from kiwi
+  in a tree that doesn't build kiwi.
+
+The Android 13 and 14 changes and the work ported from Huawei's JDN source
+are described in the README on the `lineage-21` branch.
+
+## Platform patches
+
+Android 15 needs changes outside the device tree for this tablet. They're in
+`patches/lineage-22.2/` (38 patches, one folder per repository) and get
+applied with `patches/apply-patches.sh lineage-22.2`. It is kiwi's 22.2 set
+without its core-parking power patch, since this tree parks cores through
+`TARGET_POWERHAL_SET_INTERACTIVE_EXT`:
+
+- **frameworks/av, frameworks/base**: camera HALv1 support (Camera1 API, the
+  legacy Camera2 shim and flash control), ported to Android 15 QPR2
+- **frameworks/opt/telephony**: SIM activation for the legacy Qualcomm RIL
+  (`ro.telephony.ril.config=simactivation`); without it incoming calls,
+  incoming SMS and call state never show up
+- **packages/modules/Wifi**: ignore WPA3 "transition disable" when the driver
+  has no SAE support
+- **build/make, build/soong**: the release ART runtime option, 32-bit
+  cameraserver, and keeping library folders out of Soong's generated
+  filesystems
+- **hardware/qcom-caf (common, msm8916 audio/display/media, wlan),
+  hardware/interfaces**: build fixes for the msm8916 HALs on Android 15
+- **vendor/qcom/opensource/power**: msm8916 support
+- **system/core, external/icu, vendor/lineage, device/lineage/sepolicy**:
+  adaptations for the 3.10 kernel and this hardware
 
 ## Building
 
-`manifests/` adds this tree, the kernel (at `kernel/huawei/jdn`), the vendor
-blobs, kiwi's device and vendor trees (hwjdn uses kiwi's `libwcnss_qmi`;
-kiwi itself is not built), `device/qcom/sepolicy-legacy`, the msm8916 CAF
-HALs and `dtbtool`.
+`manifests/hwjdn.xml` adds this tree, the kernel (at `kernel/huawei/jdn`) and
+the vendor blobs. `hwjdn-kiwi.xml` adds kiwi's device and vendor trees
+(hwjdn uses kiwi's `libwcnss_qmi` and legacy camera HALs; kiwi itself is not
+built) and `device/qcom/sepolicy-legacy`; `hwjdn-support.xml` adds the
+msm8916 CAF HALs and `dtbtool`.
 
-    repo init -u https://github.com/LineageOS/android.git -b lineage-21.0 --git-lfs -g default,-pixel-extra
+    repo init -u https://github.com/LineageOS/android.git -b lineage-22.2 --git-lfs -g default,-pixel-extra
     mkdir -p .repo/local_manifests
-    curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-21/manifests/hwjdn.xml -o .repo/local_manifests/hwjdn.xml
-    curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-21/manifests/hwjdn-support.xml -o .repo/local_manifests/hwjdn-support.xml
+    for m in hwjdn hwjdn-kiwi hwjdn-support; do
+      curl -sfL https://raw.githubusercontent.com/Shaheddan/android_device_huawei_hwjdn/lineage-22.2/manifests/$m.xml -o .repo/local_manifests/$m.xml
+    done
     repo sync
-    bash device/huawei/hwjdn/patches/apply-patches.sh
+    bash device/huawei/hwjdn/patches/apply-patches.sh lineage-22.2
     source build/envsetup.sh
-    lunch lineage_hwjdn-ap2a-userdebug
+    lunch lineage_hwjdn-bp1a-userdebug
     mka bacon
+
+In a tree that also builds kiwi, use `hwjdn.xml` alone next to kiwi's
+`kiwi.xml` and `kiwi-support.xml`: they already declare the same projects,
+and repo refuses a project declared twice.
 
 Build `userdebug`; the sepolicy tree only relaxes neverallows for
 eng/userdebug.
@@ -225,18 +165,16 @@ otherwise fails near the end with "not a valid zip file".
 
 ### Memory
 
-Soong's analysis of the whole lineage-21.0 tree needed about 33 GB (RAM plus
-swap). This build was made on a 16 GB machine with local, unpublished low-RAM
-changes to Soong, Blueprint and Kati that skip test, benchmark and fuzz modules
-and hide test-only folders; Soong then peaked at 13.3 GB and Kati at 7 GB.
+This build was made on a 16 GB machine with local, unpublished low-RAM
+changes to Soong, Blueprint and Kati that skip test, benchmark and fuzz
+modules and hide test-only folders, and with `SOONG_BUILD_GOMEMLIMIT=11GiB`.
 Machines with 32 GB or more should not need them.
 
-### crave.io
+## Installing
 
-crave.io shut down in November 2026. `crave/build-hwjdn.sh` is kept for
-reference: it re-initialised Crave's LineageOS 20 workspace to LineageOS 21
-and worked around Crave's Debian 13 build image (ncurses 5 links for the old
-host tools, gcc wrapper names, stale commit-graph indexes).
+Flash the zip from TWRP. Coming from another ROM or another Android version,
+wipe data first. If you use Magisk, flash it again after every ROM update,
+since the update replaces the patched boot image.
 
 ## Branches
 
@@ -247,24 +185,29 @@ host tools, gcc wrapper names, stale commit-graph indexes).
 | `lineage-19.1` | LineageOS 19.1 release |
 | `jdn-pad-power` | LineageOS 19.1 with the Huawei JDN source work (works on the L01) |
 | `lineage-20` | LineageOS 20 (works on the L01) |
-| `lineage-21` | LineageOS 21 (this branch, works on the L01) |
+| `lineage-21` | LineageOS 21 (works on the L01) |
+| `lineage-22.2` | LineageOS 22.2 (this branch, works on the L01) |
 
 ## Kernel / vendor
 
 - Kernel: [android_kernel_huawei_hwjdn](https://github.com/Shaheddan/android_kernel_huawei_hwjdn)
-  (branch `lineage-21`)
+  (branch `lineage-22.2`): the `lineage-21` kernel plus charge cycle counting
+  in the vm-bms (`qcom,batt-aging-comp` in the L01 DTS, which the W09 and
+  AL00 include) and `cycle_count` forwarded by the bq24296m charger driver.
 - Vendor: [proprietary_vendor_huawei_hwjdn](https://github.com/Shaheddan/proprietary_vendor_huawei_hwjdn)
-  (branch `lineage-21`) — extracted from Huawei's stock firmware (EMUI 4,
-  Android 6.0.1); `rmt_storage` is kiwi's dynamically linked build, because
-  the stock static one cannot read the properties of newer Android versions;
-  on `lineage-21` the Adreno GL driver is crackling's V@145, as on kiwi
+  (branch `lineage-22.2`) — extracted from Huawei's stock firmware (EMUI 4,
+  Android 6.0.1), with the shims patched into the blobs; `rmt_storage` is
+  kiwi's dynamically linked build, and the Adreno GL driver is crackling's
+  V@145, as on kiwi.
+- SELinux: [android_device_qcom_sepolicy-legacy](https://github.com/Shaheddan/android_device_qcom_sepolicy-legacy)
+  (branch `lineage-22.2`, shared with kiwi).
 
 ## Credits
 
 - LineageOS team (17.1 hwjdn tree, msm8916 platform work)
 - acroreiser, whose LeEco Le 2 (s2) 3.10 kernel with eBPF/PSI backports is
-  the source of this kernel's Android 13 backports, and whose s2 LineageOS 21
-  tree was kiwi's main Android 14 reference
+  the source of this kernel's Android 13 backports, and whose s2 trees were
+  kiwi's main reference for Android 14 and 15
 - [TipzTeam](https://codeberg.org/TipzTeam) — `sepolicy-legacy`,
   msm8916-common and wt88047x trees
 - The HTC One A9 (hiae) Android 13 tree, used as a boot reference for kiwi's
