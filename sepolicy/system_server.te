@@ -14,3 +14,7 @@ unix_socket_connect(system_server, qmuxd, libqmi_oem_main);
 # non-AOSP ones on this device.
 allow system_server oeminfo_device:dir { search write remove_name };
 allow system_server oeminfo_device:file { getattr open read unlink };
+
+# ActivityManager compares ro.bootimage.build.fingerprint with the system fingerprint at
+# boot; init_hwjdn sets ro.bootimage.* (LineageOS 22.2 enforcing log, 2026-11-14).
+get_prop(system_server, build_bootimage_prop)

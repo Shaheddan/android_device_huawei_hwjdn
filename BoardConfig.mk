@@ -50,13 +50,13 @@ BOARD_KERNEL_PAGESIZE := 2048
 BOARD_KERNEL_TAGS_OFFSET := 0x00000100
 BOARD_RAMDISK_OFFSET     := 0x01000000
 
-# Stock's cmdline verbatim, minus androidboot.selinux (set below for bringup)
+# Stock's cmdline verbatim, minus androidboot.selinux (set below)
 # and minus the bootloader-appended serialno/verifiedbootstate/veritymode.
 # There is no console= on this device; earlyprintk is what stock uses.
 BOARD_KERNEL_CMDLINE := androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 earlyprintk
 
-# BRINGUP ONLY. Remove once a boot-time denial harvest is clean, exactly as
-# kiwi did. Leaving it in ships a ROM with SELinux disabled.
+# Enforcing, as every jdn build has been since 19.1. Kept explicit so a permissive
+# bringup line can't slip back in unnoticed.
 BOARD_KERNEL_CMDLINE += androidboot.selinux=enforcing
 
 # 17.85 MB of kernel is far too large for a compressed Image.gz; this is an

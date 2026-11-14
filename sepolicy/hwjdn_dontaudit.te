@@ -1,6 +1,6 @@
 # Harmless probes of properties the blobs only read if set, and a boot-control
 # lookup kiwi has no HAL for: keep them out of the enforcing log.
-dontaudit hal_camera_default { persist_debug_prop bootanim_system_prop default_prop }:file { read open getattr map };
+dontaudit hal_camera_default { persist_debug_prop bootanim_system_prop default_prop system_prop }:file { read open getattr map };
 dontaudit hal_graphics_composer_default default_prop:file { read open getattr map };
 dontaudit surfaceflinger vendor_default_prop:file { read open getattr map };
 dontaudit vold hal_bootctl_hwservice:hwservice_manager find;
@@ -16,3 +16,18 @@ dontaudit netmgrd system_file:file { open read };
 dontaudit vendor_init media_userdir_file:dir getattr;
 dontaudit vendor_init default_prop:property_service set;
 dontaudit hal_audio_default sysfs:dir read;
+
+# LineageOS 22.2 enforcing log, 2026-11-14 (everything in use and working):
+# - Android 15's libui looks for the AIDL graphics allocator first, then falls back to
+#   the HIDL gralloc.
+dontaudit { hal_graphics_composer_default hal_camera_default } default_android_vndservice:service_manager find;
+# - ueventd's fs_mgr probes the device tree for an fstab (".../compatible"); on the 3.10
+#   kernel /proc/device-tree is plain proc and jdn's fstab is a file, so the probe just
+#   fails. kcmdlinectrl and misctrl probe the same file, and storaged reads
+#   /sys/block/mmcblk0/stat; those three are platform-private, so vendor policy can't
+#   name them. Harmless.
+dontaudit ueventd proc:file read;
+# - The software codecs (mediaswcodec) ask for the vendor copies of libui, libbinder and
+#   the graphics allocator libs that 22.2 installs for the display stack (libqdutils).
+#   They stay unreadable: video thumbnails and playback work without them.
+dontaudit mediaswcodec vendor_file:file { read open getattr map };
