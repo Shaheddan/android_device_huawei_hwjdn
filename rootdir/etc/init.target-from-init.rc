@@ -1,6 +1,4 @@
 on early-init
-    setprop persist.service.hbd.enable true
-
 # Create cgroup mount point for freezer
     mkdir /dev/frz
     mount cgroup none /dev/frz freezer
@@ -83,11 +81,6 @@ service teecd /system/vendor/bin/teecd
     class core
     user system
     group system
-
-service signinfolistener /system/vendor/bin/signinfolistener
-    class core
-    user system
-    group system readproc
 
 service libqmi_oem_main /system/vendor/bin/libqmi_oem_main
     class main
