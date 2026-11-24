@@ -1,0 +1,343 @@
+From 54c0044f35a4f4f19aaf4e6eb1794e266c3115bf Mon Sep 17 00:00:00 2001
+From: shahed <jamshidalinezhadian@gmail.com>
+Date: Fri, 20 Nov 2026 04:13:26 +0330
+Subject: [PATCH] power: 8916: boost from kiwi's performance profile
+
+Replace the perfd interaction and launch boosts with our own, driven by
+the profile picked in Settings > System > Performance. init sets the
+CPU touch floors through the kernel's cpu_boost and leaves the rest of
+the profile in vendor.kiwi.perf.*.
+
+On a touch, wake the parked fast cores and put a floor under the GPU
+clock. An app launch also holds both clusters near their top clock
+through msm_performance. Everything is let go once the last request
+runs out, and the Stock profile turns it all off.
+---
+ power-8916.c | 277 ++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 209 insertions(+), 68 deletions(-)
+
+diff --git a/power-8916.c b/power-8916.c
+index 51416a2..8c5b364 100644
+--- a/power-8916.c
++++ b/power-8916.c
+@@ -32,6 +32,8 @@
+ #include <dlfcn.h>
+ #include <errno.h>
+ #include <fcntl.h>
++#include <pthread.h>
++#include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+@@ -39,6 +41,7 @@
+ #include <time.h>
+ 
+ #define LOG_TAG "QTI PowerHAL"
++#include <cutils/properties.h>
+ #include <hardware/hardware.h>
+ #include <hardware/power.h>
+ #include <log/log.h>
+@@ -64,94 +67,232 @@ static bool is_target_8916(void) {
+     return is_8916;
+ }
+ 
+-// clang-format off
+-static int resources_interaction_fling_boost[] = {
+-    ALL_CPUS_PWR_CLPS_DIS,
+-    SCHED_BOOST_ON,
+-    SCHED_PREFER_IDLE_DIS,
+-    0x20D
+-};
++/*
++ * kiwi performance profiles (Settings > System > Performance).
++ *
++ * At boot init writes the chosen profile into vendor.kiwi.perf.* and sets
++ * the kernel's cpu_boost, which raises both clusters' clock floor on every
++ * touch by itself. On the framework's INTERACTION and LAUNCH hints this
++ * adds what the kernel can't do on its own:
++ *   - wake parked fast-cluster cores (core_ctl min_cpus), so the work isn't
++ *     squeezed onto the few cores that happen to be online,
++ *   - put a floor under the GPU clock (kgsl min_pwrlevel),
++ *   - during an app launch, hold both clusters near their top clock
++ *     (msm_performance cpu_min_freq, which survives hotplug).
++ * Each boost is a slot with an end time. A small thread applies the
++ * highest request of the active slots and lets go when they run out.
++ * vendor.kiwi.perf.boost=0 (the Stock profile) turns all of it off.
++ */
++#define KIWI_CORE_CTL "/sys/devices/system/cpu/cpu0/core_ctl/min_cpus"
++#define KIWI_GPU_FREQS "/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies"
++#define KIWI_GPU_MIN "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
++#define KIWI_CPU_MIN "/sys/module/msm_performance/parameters/cpu_min_freq"
++#define KIWI_MAX_GPU_LEVELS 8
+ 
+-static int resources_interaction_boost[] = {
+-    ALL_CPUS_PWR_CLPS_DIS,
+-    SCHED_PREFER_IDLE_DIS,
+-    0x20D
++struct kiwi_slot {
++    int cores;
++    int gpu_mhz;
++    int big_khz;
++    int little_khz;
++    struct timespec until;
+ };
+ 
+-static int resources_launch[] = {
+-    ALL_CPUS_PWR_CLPS_DIS,
+-    SCHED_BOOST_ON,
+-    SCHED_PREFER_IDLE_DIS,
+-    0x20F,
+-    0x1C00,
+-    0x4001,
+-    0x4101,
+-    0x4201
+-};
+-// clang-format on
++static struct kiwi_slot kiwi_touch, kiwi_launch;
++static pthread_mutex_t kiwi_lock = PTHREAD_MUTEX_INITIALIZER;
++static pthread_cond_t kiwi_cond;
++static int kiwi_ready;
+ 
+-const int kDefaultInteractiveDuration = 500; /* ms */
+-const int kMinFlingDuration = 1500;          /* ms */
+-static const int kMaxInteractiveDuration = 5000;    /* ms */
+-static const int kMaxLaunchDuration = 5000;         /* ms */
++/* Values to go back to, read once before the first boost. */
++static int kiwi_rest_cores;
++static int kiwi_rest_gpu_level;
++static long kiwi_gpu_hz[KIWI_MAX_GPU_LEVELS];
++static int kiwi_gpu_levels;
+ 
+-static void process_interaction_hint(void* data) {
+-    static struct timespec s_previous_boost_timespec;
++/* What is written right now (-1: not written yet). */
++static int kiwi_cur_cores = -1, kiwi_cur_gpu = -1, kiwi_cur_big = -1, kiwi_cur_little = -1;
+ 
+-    struct timespec cur_boost_timespec;
+-    long long elapsed_time;
+-    int duration = kDefaultInteractiveDuration;
++static int kiwi_read_int(const char* path, int fallback) {
++    char buf[32];
+ 
+-    if (data) {
+-        int input_duration = *((int*)data);
+-        if (input_duration > duration) {
+-            duration = (input_duration > kMaxInteractiveDuration) ? kMaxInteractiveDuration
+-                                                                  : input_duration;
+-        }
++    if (sysfs_read(path, buf, sizeof(buf)) != 0) return fallback;
++    return atoi(buf);
++}
++
++static int kiwi_ts_before(const struct timespec* a, const struct timespec* b) {
++    return a->tv_sec < b->tv_sec || (a->tv_sec == b->tv_sec && a->tv_nsec < b->tv_nsec);
++}
++
++static void kiwi_ts_add_ms(struct timespec* t, int ms) {
++    t->tv_sec += ms / 1000;
++    t->tv_nsec += (long)(ms % 1000) * 1000000L;
++    if (t->tv_nsec >= 1000000000L) {
++        t->tv_sec++;
++        t->tv_nsec -= 1000000000L;
+     }
++}
+ 
+-    clock_gettime(CLOCK_MONOTONIC, &cur_boost_timespec);
++/* Slowest GPU power level that still runs at mhz or more (level 0 is the fastest). */
++static int kiwi_gpu_level_for(int mhz) {
++    int i, level = kiwi_rest_gpu_level;
+ 
+-    elapsed_time = calc_timespan_us(s_previous_boost_timespec, cur_boost_timespec);
+-    // don't hint if it's been less than 250ms since last boost
+-    // also detect if we're doing anything resembling a fling
+-    // support additional boosting in case of flings
+-    if (elapsed_time < 250000 && duration <= 750) {
+-        return;
++    if (mhz <= 0) return kiwi_rest_gpu_level;
++    for (i = 0; i < kiwi_gpu_levels; i++) {
++        if (kiwi_gpu_hz[i] >= (long)mhz * 1000000L) level = i;
+     }
+-    s_previous_boost_timespec = cur_boost_timespec;
++    /* Never ask for less than the resting floor. */
++    return level < kiwi_rest_gpu_level ? level : kiwi_rest_gpu_level;
++}
+ 
+-    if (duration >= kMinFlingDuration) {
+-        interaction(duration, ARRAY_SIZE(resources_interaction_fling_boost),
+-                    resources_interaction_fling_boost);
+-    } else {
+-        interaction(duration, ARRAY_SIZE(resources_interaction_boost), resources_interaction_boost);
++static void kiwi_write_int(const char* path, int value) {
++    char buf[16];
++
++    snprintf(buf, sizeof(buf), "%d", value);
++    if (sysfs_write(path, buf) != 0) ALOGE("kiwi boost: can't write %s", path);
++}
++
++/* Called with kiwi_lock held: apply the highest request of the slots still running. */
++static void kiwi_apply_locked(const struct timespec* now) {
++    struct kiwi_slot* slots[] = {&kiwi_touch, &kiwi_launch};
++    int cores = kiwi_rest_cores, gpu_mhz = 0, big = 0, little = 0;
++    unsigned int i;
++    int gpu_level;
++
++    for (i = 0; i < ARRAY_SIZE(slots); i++) {
++        if (!kiwi_ts_before(now, &slots[i]->until)) continue;
++        if (slots[i]->cores > cores) cores = slots[i]->cores;
++        if (slots[i]->gpu_mhz > gpu_mhz) gpu_mhz = slots[i]->gpu_mhz;
++        if (slots[i]->big_khz > big) big = slots[i]->big_khz;
++        if (slots[i]->little_khz > little) little = slots[i]->little_khz;
++    }
++
++    if (cores != kiwi_cur_cores) {
++        kiwi_write_int(KIWI_CORE_CTL, cores);
++        kiwi_cur_cores = cores;
++    }
++    gpu_level = kiwi_gpu_level_for(gpu_mhz);
++    if (gpu_level != kiwi_cur_gpu) {
++        kiwi_write_int(KIWI_GPU_MIN, gpu_level);
++        kiwi_cur_gpu = gpu_level;
++    }
++    if (big != kiwi_cur_big || little != kiwi_cur_little) {
++        char buf[160];
++
++        /* cpu0-3: fast cluster, cpu4-7: efficient cluster; 0 removes the floor. */
++        snprintf(buf, sizeof(buf), "0:%d 1:%d 2:%d 3:%d 4:%d 5:%d 6:%d 7:%d", big, big, big, big,
++                 little, little, little, little);
++        if (sysfs_write(KIWI_CPU_MIN, buf) != 0) ALOGE("kiwi boost: can't write %s", KIWI_CPU_MIN);
++        kiwi_cur_big = big;
++        kiwi_cur_little = little;
+     }
+ }
+ 
+-static int process_activity_launch_hint(void* data) {
+-    static int launch_handle = -1;
+-    static int launch_mode = 0;
++static void* kiwi_boost_thread(void* arg) {
++    (void)arg;
++    pthread_mutex_lock(&kiwi_lock);
++    for (;;) {
++        struct timespec now, next;
++        int waiting = 0;
+ 
+-    // release lock early if launch has finished
+-    if (!data) {
+-        if (CHECK_HANDLE(launch_handle)) {
+-            release_request(launch_handle);
+-            launch_handle = -1;
++        clock_gettime(CLOCK_MONOTONIC, &now);
++        kiwi_apply_locked(&now);
++        if (kiwi_ts_before(&now, &kiwi_touch.until)) {
++            next = kiwi_touch.until;
++            waiting = 1;
+         }
+-        launch_mode = 0;
+-        return HINT_HANDLED;
++        if (kiwi_ts_before(&now, &kiwi_launch.until) &&
++            (!waiting || kiwi_ts_before(&kiwi_launch.until, &next))) {
++            next = kiwi_launch.until;
++            waiting = 1;
++        }
++        if (waiting)
++            pthread_cond_timedwait(&kiwi_cond, &kiwi_lock, &next);
++        else
++            pthread_cond_wait(&kiwi_cond, &kiwi_lock);
+     }
++    return NULL;
++}
+ 
+-    if (!launch_mode) {
+-        launch_handle = interaction_with_handle(launch_handle, kMaxLaunchDuration,
+-                                                ARRAY_SIZE(resources_launch), resources_launch);
+-        if (!CHECK_HANDLE(launch_handle)) {
+-            ALOGE("Failed to perform launch boost");
+-            return HINT_NONE;
+-        }
+-        launch_mode = 1;
++/* Called with kiwi_lock held. */
++static int kiwi_start_locked(void) {
++    pthread_condattr_t attr;
++    pthread_t thread;
++    char buf[256];
++    char* tok;
++    char* save = NULL;
++
++    if (kiwi_ready) return kiwi_ready > 0;
++
++    /* init parks the fast cluster fully at rest (stock core_ctl min_cpus 0). */
++    kiwi_rest_cores = 0;
++    kiwi_rest_gpu_level = kiwi_read_int(KIWI_GPU_MIN, 0);
++    kiwi_gpu_levels = 0;
++    if (sysfs_read(KIWI_GPU_FREQS, buf, sizeof(buf)) == 0) {
++        for (tok = strtok_r(buf, " \n", &save); tok && kiwi_gpu_levels < KIWI_MAX_GPU_LEVELS;
++             tok = strtok_r(NULL, " \n", &save))
++            kiwi_gpu_hz[kiwi_gpu_levels++] = atol(tok);
++    }
++
++    pthread_condattr_init(&attr);
++    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
++    pthread_cond_init(&kiwi_cond, &attr);
++    pthread_condattr_destroy(&attr);
++    if (pthread_create(&thread, NULL, kiwi_boost_thread, NULL) != 0) {
++        ALOGE("kiwi boost: can't start the release thread");
++        kiwi_ready = -1;
++        return 0;
++    }
++    pthread_detach(thread);
++    ALOGI("kiwi boost: ready (fast cores at rest %d, GPU level at rest %d, %d GPU levels)",
++          kiwi_rest_cores, kiwi_rest_gpu_level, kiwi_gpu_levels);
++    kiwi_ready = 1;
++    return 1;
++}
++
++/* Start or extend a slot for ms milliseconds (ms <= 0 ends it now). */
++static void kiwi_boost(struct kiwi_slot* slot, int ms, int cores, int gpu_mhz, int big_khz,
++                       int little_khz) {
++    struct timespec until;
++
++    pthread_mutex_lock(&kiwi_lock);
++    if (!kiwi_start_locked()) {
++        pthread_mutex_unlock(&kiwi_lock);
++        return;
++    }
++    clock_gettime(CLOCK_MONOTONIC, &until);
++    if (ms > 0) kiwi_ts_add_ms(&until, ms);
++    slot->cores = cores;
++    slot->gpu_mhz = gpu_mhz;
++    slot->big_khz = big_khz;
++    slot->little_khz = little_khz;
++    /* A new request never shortens a running boost. */
++    if (ms <= 0 || kiwi_ts_before(&slot->until, &until)) slot->until = until;
++    pthread_cond_signal(&kiwi_cond);
++    pthread_mutex_unlock(&kiwi_lock);
++}
++
++static int kiwi_prop(const char* name, int fallback) {
++    return property_get_int32(name, fallback);
++}
++
++static void process_interaction_hint(void* data) {
++    (void)data;
++    if (!kiwi_prop("vendor.kiwi.perf.boost", 0)) return;
++    kiwi_boost(&kiwi_touch, kiwi_prop("vendor.kiwi.perf.touch_ms", 500),
++               kiwi_prop("vendor.kiwi.perf.touch_cores", 4),
++               kiwi_prop("vendor.kiwi.perf.touch_gpu_mhz", 0), 0, 0);
++}
++
++static int process_activity_launch_hint(void* data) {
++    if (!kiwi_prop("vendor.kiwi.perf.boost", 0)) return HINT_HANDLED;
++    if (!data) {
++        /* The launch has finished: end its boost early. */
++        kiwi_boost(&kiwi_launch, 0, 0, 0, 0, 0);
++        return HINT_HANDLED;
+     }
++    kiwi_boost(&kiwi_launch, kiwi_prop("vendor.kiwi.perf.launch_ms", 3000), 4,
++               kiwi_prop("vendor.kiwi.perf.launch_gpu_mhz", 0),
++               kiwi_prop("vendor.kiwi.perf.launch_big_khz", 0),
++               kiwi_prop("vendor.kiwi.perf.launch_little_khz", 0));
+     return HINT_HANDLED;
+ }
+ 
+-- 
+2.43.0
+

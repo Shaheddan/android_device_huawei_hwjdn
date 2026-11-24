@@ -8,3 +8,7 @@ vendor_internal_prop(vendor_bluetooth_prop)
 # Vendor-only properties read by `on property:` triggers in init.qcom.rc.
 # vendor_init may not touch default_prop (system_internal), so label them.
 vendor_internal_prop(vendor_hwjdn_prop)
+
+# Performance profiles: JdnParts picks one, init and the power HAL read it.
+# Named after kiwi, whose power HAL code the tablet shares.
+vendor_public_prop(vendor_kiwi_perf_prop)

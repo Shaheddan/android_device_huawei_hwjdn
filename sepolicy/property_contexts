@@ -23,3 +23,6 @@ init.svc.servicemanager u:object_r:init_service_status_prop:s0 exact string
 init.svc.recovery       u:object_r:init_service_status_prop:s0 exact string
 ro.use_data_netmgrd             u:object_r:vendor_hwjdn_prop:s0
 persist.env.fastdorm.enabled    u:object_r:vendor_hwjdn_prop:s0
+# Performance profiles (Settings > System > Performance)
+persist.vendor.kiwi.perf.       u:object_r:vendor_kiwi_perf_prop:s0
+vendor.kiwi.perf.               u:object_r:vendor_kiwi_perf_prop:s0

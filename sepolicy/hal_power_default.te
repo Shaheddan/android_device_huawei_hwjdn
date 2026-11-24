@@ -2,3 +2,14 @@
 allow servicemanager hal_power_default:dir search;
 allow servicemanager hal_power_default:file { read open };
 allow servicemanager hal_power_default:process getattr;
+
+# Touch and launch boost (power-8916.c, kiwi's performance profiles): wake the
+# fast cores through core_ctl, a GPU clock floor through kgsl (labelled
+# vendor_sysfs_kgsl here) and CPU clock floors through msm_performance.
+r_dir_file(hal_power_default, sysfs_devices_system_cpu)
+allow hal_power_default sysfs_devices_system_cpu:file w_file_perms;
+r_dir_file(hal_power_default, vendor_sysfs_kgsl)
+allow hal_power_default vendor_sysfs_kgsl:file w_file_perms;
+r_dir_file(hal_power_default, sysfs_msm_perf)
+allow hal_power_default sysfs_msm_perf:file w_file_perms;
+get_prop(hal_power_default, vendor_kiwi_perf_prop)

@@ -122,6 +122,9 @@ on enable-low-power
 
     start perfd
 
+    # Apply the performance profile on top of the setup above.
+    trigger kiwi-perf
+
 on charger
     write /sys/module/lpm_levels/parameters/sleep_disabled 0
     write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor "powersave"
@@ -131,3 +134,149 @@ on property:sys.boot_completed=1
 
 on property:init.svc.recovery=running
     trigger enable-low-power
+
+# Performance profiles (Settings > System > Performance, in JdnParts).
+# persist.vendor.kiwi.perf.profile picks one of stock, light, smooth (the
+# default), fast, max, oc1 and oc2. It's read once per boot, so the page
+# restarts the tablet after a change.
+#
+# The kernel's cpu_boost raises both clusters' clock floor on every touch,
+# for input_boost_ms after the last one. The power HAL reads the rest from
+# vendor.kiwi.perf.*: on a touch it wakes parked fast cores and puts a floor
+# under the GPU clock, and an app launch also gets CPU floors near the top.
+# Smooth is the default, as on kiwi, where it felt best in a live test.
+#
+# The names are kiwi's: the power HAL code is shared with kiwi and reads
+# vendor.kiwi.perf.*. The tablet runs the same clock plan (1497.6 / 1209.6
+# MHz tops, GPU 550 MHz), so the clocks below are the same as well.
+
+on boot
+    # Written by the power HAL (user system) while it boosts.
+    chown system system /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+    chmod 0664 /sys/devices/system/cpu/cpu0/core_ctl/min_cpus
+    chown system system /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    chmod 0664 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    chown system system /sys/module/msm_performance/parameters/cpu_min_freq
+    chmod 0664 /sys/module/msm_performance/parameters/cpu_min_freq
+
+# Overclock guard. Every boot on an overclock profile starts a trial, which
+# JdnParts confirms after 3 minutes and a clean shutdown confirms too. If a
+# boot finds the trial still open, the tablet restarted by itself during it:
+# go back to Max and let the Performance page say why.
+on kiwi-perf && property:persist.vendor.kiwi.perf.trial=1
+    setprop vendor.kiwi.perf.fallback ${persist.vendor.kiwi.perf.profile}
+    setprop persist.vendor.kiwi.perf.profile max
+    setprop persist.vendor.kiwi.perf.trial 0
+
+on kiwi-perf
+    setprop vendor.kiwi.perf.apply ${persist.vendor.kiwi.perf.profile:-smooth}
+
+on shutdown
+    setprop persist.vendor.kiwi.perf.trial 0
+
+on property:vendor.kiwi.perf.apply=stock
+    write /sys/module/cpu_boost/parameters/input_boost_freq 0
+    setprop vendor.kiwi.perf.boost 0
+
+on property:vendor.kiwi.perf.apply=light
+    write /sys/module/cpu_boost/parameters/input_boost_ms 300
+    write /sys/module/cpu_boost/parameters/input_boost_freq "0:1113600 1:1113600 2:1113600 3:1113600 4:998400 5:998400 6:998400 7:998400"
+    setprop vendor.kiwi.perf.touch_ms 300
+    setprop vendor.kiwi.perf.touch_cores 2
+    setprop vendor.kiwi.perf.touch_gpu_mhz 400
+    setprop vendor.kiwi.perf.launch_ms 2000
+    setprop vendor.kiwi.perf.launch_big_khz 1344000
+    setprop vendor.kiwi.perf.launch_little_khz 1113600
+    setprop vendor.kiwi.perf.launch_gpu_mhz 465
+    setprop vendor.kiwi.perf.boost 1
+
+on property:vendor.kiwi.perf.apply=smooth
+    write /sys/module/cpu_boost/parameters/input_boost_ms 500
+    write /sys/module/cpu_boost/parameters/input_boost_freq "0:1344000 1:1344000 2:1344000 3:1344000 4:1113600 5:1113600 6:1113600 7:1113600"
+    setprop vendor.kiwi.perf.touch_ms 500
+    setprop vendor.kiwi.perf.touch_cores 4
+    setprop vendor.kiwi.perf.touch_gpu_mhz 400
+    setprop vendor.kiwi.perf.launch_ms 3000
+    setprop vendor.kiwi.perf.launch_big_khz 1497600
+    setprop vendor.kiwi.perf.launch_little_khz 1209600
+    setprop vendor.kiwi.perf.launch_gpu_mhz 550
+    setprop vendor.kiwi.perf.boost 1
+
+on property:vendor.kiwi.perf.apply=fast
+    write /sys/module/cpu_boost/parameters/input_boost_ms 800
+    write /sys/module/cpu_boost/parameters/input_boost_freq "0:1459200 1:1459200 2:1459200 3:1459200 4:1209600 5:1209600 6:1209600 7:1209600"
+    setprop vendor.kiwi.perf.touch_ms 800
+    setprop vendor.kiwi.perf.touch_cores 4
+    setprop vendor.kiwi.perf.touch_gpu_mhz 465
+    setprop vendor.kiwi.perf.launch_ms 4000
+    setprop vendor.kiwi.perf.launch_big_khz 1497600
+    setprop vendor.kiwi.perf.launch_little_khz 1209600
+    setprop vendor.kiwi.perf.launch_gpu_mhz 550
+    setprop vendor.kiwi.perf.boost 1
+
+on property:vendor.kiwi.perf.apply=max
+    trigger kiwi-perf-max
+
+on property:vendor.kiwi.perf.apply=oc1
+    trigger kiwi-perf-max
+    trigger kiwi-perf-oc1
+
+on property:vendor.kiwi.perf.apply=oc2
+    trigger kiwi-perf-max
+    trigger kiwi-perf-oc2
+
+# Max, and the touch and launch boost of both overclock profiles (they boost
+# to the stock top clocks; the governor can go past them under load).
+on kiwi-perf-max
+    write /sys/module/cpu_boost/parameters/input_boost_ms 1000
+    write /sys/module/cpu_boost/parameters/input_boost_freq "0:1497600 1:1497600 2:1497600 3:1497600 4:1209600 5:1209600 6:1209600 7:1209600"
+    setprop vendor.kiwi.perf.touch_ms 1000
+    setprop vendor.kiwi.perf.touch_cores 4
+    setprop vendor.kiwi.perf.touch_gpu_mhz 550
+    setprop vendor.kiwi.perf.launch_ms 5000
+    setprop vendor.kiwi.perf.launch_big_khz 1497600
+    setprop vendor.kiwi.perf.launch_little_khz 1209600
+    setprop vendor.kiwi.perf.launch_gpu_mhz 550
+    setprop vendor.kiwi.perf.boost 1
+
+# Overclock 1: 1651.2 / 1305.6 MHz. The kernel boots at stock and only
+# raises the limits when told to here.
+on kiwi-perf-oc1
+    # Keep every core online while the limits are written: core_ctl may
+    # have parked some, and a cluster with no core online has no limit to set.
+    write /sys/devices/system/cpu/cpu0/core_ctl/min_cpus 4
+    write /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 4
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+    write /sys/devices/system/cpu/cpu3/online 1
+    write /sys/devices/system/cpu/cpu4/online 1
+    write /sys/devices/system/cpu/cpu5/online 1
+    write /sys/devices/system/cpu/cpu6/online 1
+    write /sys/devices/system/cpu/cpu7/online 1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 1651200
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq 1305600
+    write /sys/devices/system/cpu/cpu0/core_ctl/min_cpus 0
+    write /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 1
+    setprop persist.vendor.kiwi.perf.trial 1
+
+# Overclock 2: 1708.8 / 1363.2 MHz and 620 MHz on the GPU.
+on kiwi-perf-oc2
+    # Keep every core online while the limits are written: core_ctl may
+    # have parked some, and a cluster with no core online has no limit to set.
+    write /sys/devices/system/cpu/cpu0/core_ctl/min_cpus 4
+    write /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 4
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu2/online 1
+    write /sys/devices/system/cpu/cpu3/online 1
+    write /sys/devices/system/cpu/cpu4/online 1
+    write /sys/devices/system/cpu/cpu5/online 1
+    write /sys/devices/system/cpu/cpu6/online 1
+    write /sys/devices/system/cpu/cpu7/online 1
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 1708800
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq 1363200
+    write /sys/class/kgsl/kgsl-3d0/max_pwrlevel 0
+    write /sys/devices/system/cpu/cpu0/core_ctl/min_cpus 0
+    write /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 1
+    setprop persist.vendor.kiwi.perf.trial 1
