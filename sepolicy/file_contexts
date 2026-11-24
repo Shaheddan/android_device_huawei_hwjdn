@@ -58,3 +58,7 @@
 # sysfs_battery_supply when ueventd restorecons /sys, overriding the genfscon label; an exact
 # path is more specific, so this wins (kiwi lineage-21 ddd330a).
 /sys/devices/soc\.0/78b8000\.i2c/i2c-4/4-006b/power_supply/battery/factory_diag  u:object_r:sysfs_bypass_charging:s0
+
+# Swap to storage (Settings > System > Performance > Memory), jdn_swap.te
+/(vendor|system/vendor)/bin/jdn-swapfile\.sh                                    u:object_r:jdn_swap_exec:s0
+/data/vendor/swap(/.*)?                                                          u:object_r:jdn_swap_data_file:s0

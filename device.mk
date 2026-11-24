@@ -253,6 +253,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     fstab.qcom \
     init.class_main.sh \
+    jdn-swapfile.sh \
     init.qcom.rc \
     init.qcom.power.rc \
     init.qcom.usb.rc \
@@ -264,6 +265,12 @@ PRODUCT_PACKAGES += \
 # Recovery
 PRODUCT_PACKAGES += \
     librecovery_updater_hwjdn
+
+# Swap: one fstab per compressed RAM size (percent of RAM), picked at boot by
+# init.target.rc from Settings > System > Performance > Memory.
+JDN_ZRAM_SIZES := 25 50 75 100
+PRODUCT_COPY_FILES += \
+    $(foreach z,$(JDN_ZRAM_SIZES),$(LOCAL_PATH)/rootdir/etc/zram/fstab.zram$(z):$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram$(z))
 
 # RenderScript
 PRODUCT_PACKAGES += \

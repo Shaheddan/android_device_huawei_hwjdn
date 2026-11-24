@@ -1,0 +1,24 @@
+# Swap to storage (Settings > System > Performance > Memory):
+# /vendor/bin/jdn-swapfile.sh makes, turns on or deletes /data/vendor/swap/swapfile.
+type jdn_swap, domain;
+type jdn_swap_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(jdn_swap)
+
+# the script and the toybox/toolbox commands it runs
+allow jdn_swap vendor_shell_exec:file rx_file_perms;
+allow jdn_swap vendor_toolbox_exec:file rx_file_perms;
+
+# the swap file
+allow jdn_swap vendor_data_file:dir search;
+allow jdn_swap jdn_swap_data_file:dir rw_dir_perms;
+allow jdn_swap jdn_swap_data_file:file create_file_perms;
+
+# free space on /data (df) and what is already swapped on
+allow jdn_swap labeledfs:filesystem getattr;
+allow jdn_swap proc_swaps:file r_file_perms;
+
+# swapon needs CAP_SYS_ADMIN
+allow jdn_swap self:capability sys_admin;
+
+# reads the size, reports what it did
+set_prop(jdn_swap, vendor_kiwi_perf_prop)

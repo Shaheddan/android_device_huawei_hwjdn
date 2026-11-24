@@ -9,3 +9,6 @@ type sysfs_bypass_charging, fs_type, sysfs_type;
 # eMMC queue settings: init (discard_max_bytes) and vendor_init (scheduler) write
 # queue/*. Android 13 forbids init writing generic sysfs, so it needs its own label.
 type sysfs_mmc_block, sysfs_type, fs_type;
+
+# Swap to storage: the swap file in /data/vendor/swap (jdn_swap.te)
+type jdn_swap_data_file, file_type, data_file_type;
