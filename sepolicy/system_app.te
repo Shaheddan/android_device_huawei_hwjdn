@@ -2,3 +2,7 @@
 set_prop(system_app, vendor_kiwi_perf_prop)
 allow system_app sysfs_kgsl_gpuclk:file r_file_perms;
 r_dir_file(system_app, vendor_sysfs_kgsl)
+
+# Performance > Memory shows what zram holds (mm_stat) and what is in the swap file (/proc/swaps).
+r_dir_file(system_app, sysfs_zram)
+allow system_app proc_swaps:file r_file_perms;
