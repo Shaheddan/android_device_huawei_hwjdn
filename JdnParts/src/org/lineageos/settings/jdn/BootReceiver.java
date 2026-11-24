@@ -21,5 +21,7 @@ public class BootReceiver extends BroadcastReceiver {
         context.startService(new Intent(context, BypassService.class));
         BatteryHealth.update(context, BatteryHealth.stickyBattery(context));
         HealthSummaryProvider.notifyChanged(context);
+        // Performance: start the 3 minute count of an overclock profile on trial.
+        PerfProfiles.onBootCompleted(context);
     }
 }
