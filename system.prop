@@ -95,6 +95,9 @@ ro.lmk.upgrade_pressure=100
 ro.lmk.downgrade_pressure=100
 ro.lmk.kill_heaviest_task=true
 ro.lmk.kill_timeout_ms=100
+# lmkd runs on PSI. Let its "low watermark is breached" rule close only the oldest
+# cached apps; 2 GB has little room to wait for a stall before freeing memory.
+ro.lmk.lowmem_min_oom_score=950
 
 # Log
 log.tag.VM_BMS=WARN
